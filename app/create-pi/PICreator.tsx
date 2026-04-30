@@ -365,6 +365,22 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  const fetchNextSequence = useCallback(async () => {
+    try {
+      const res = await fetch('/api/invoices?nextSequence=true');
+      const json = await res.json() as { success: boolean; data?: { nextSequence?: string } };
+      if (json.success && json.data?.nextSequence) {
+        setSeqNumber(json.data.nextSequence);
+      }
+    } catch {
+      // fallback: keep default sequence when API is unavailable
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchNextSequence();
+  }, [fetchNextSequence]);
+
   // ── Computed line items ──────────────────────────────────────────────────────
   const computedItems = useMemo<ComputedLineItem[]>(() => {
     return lineItems.map(item => {
@@ -499,6 +515,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       const json = await res.json() as { success: boolean; message?: string };
       if (!json.success) throw new Error(json.message || 'Failed to save');
       setSaved(true);
+      await fetchNextSequence();
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save invoice');
     } finally {
@@ -507,7 +524,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   }, [
     selectedDealer, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
     computedItems, taxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
-    totalGST, insurance, total,
+    totalGST, insurance, total, fetchNextSequence,
   ]);
 
   // ── Preview props ────────────────────────────────────────────────────────────
@@ -599,16 +616,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                 readOnly
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
               />
-              <div className="mt-1 flex items-center gap-1">
-                <span className="text-[10px] text-gray-400">Seq:</span>
-                <input
-                  type="text"
-                  value={seqNumber}
-                  onChange={e => setSeqNumber(e.target.value.replace(/\D/g, '').padStart(5, '0').slice(-5))}
-                  className="w-20 border border-zinc-200 rounded px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-red-600"
-                  maxLength={5}
-                />
-              </div>
+              <div className="mt-1 text-[10px] text-gray-400">Auto Sequence: {seqNumber}</div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Date</label>

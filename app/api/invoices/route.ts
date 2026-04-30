@@ -18,6 +18,28 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const { searchParams } = new URL(req.url);
+    const nextSequence = searchParams.get('nextSequence') === 'true';
+
+    if (nextSequence) {
+      const latest = await Invoice.aggregate([
+        {
+          $project: {
+            seqAsNumber: {
+              $convert: { input: '$seqNumber', to: 'int', onError: 0, onNull: 0 },
+            },
+          },
+        },
+        { $sort: { seqAsNumber: -1 } },
+        { $limit: 1 },
+      ]);
+
+      const lastSequence = latest[0]?.seqAsNumber ?? 0;
+      return NextResponse.json({
+        success: true,
+        data: { nextSequence: String(lastSequence + 1).padStart(5, '0') },
+      });
+    }
+
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') || 20)));
     const search = searchParams.get('search') || '';
