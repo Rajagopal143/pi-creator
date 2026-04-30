@@ -565,51 +565,9 @@ export default function PICreator({ dealers, products, variants }: Props) {
 
   // ── Print ────────────────────────────────────────────────────────────────────
   const handlePrint = useCallback(() => {
-    const root = printRef.current;
-    if (!root) return;
-    const win = window.open('', '_blank', 'width=1100,height=800');
-    if (!win) { alert('Allow pop-ups to print.'); return; }
-    const doc = win.document;
-    doc.open();
-    doc.write('<!DOCTYPE html><html><head><meta charset="utf-8">');
-    doc.write(`<title>${quotationNumber}</title>`);
-    doc.write(`<base href="${document.baseURI}">`);
-    document.querySelectorAll('link[rel="stylesheet"]').forEach((node) => {
-      doc.write(node.outerHTML);
-    });
-    document.querySelectorAll('style').forEach((node) => {
-      doc.write(node.outerHTML);
-    });
-    doc.write(`
-      <style>
-        @page { size: A4; margin: 12mm; }
-        body {
-          margin: 0;
-          padding: 20px;
-          background: #ffffff;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        @media print {
-          body { padding: 0; }
-        }
-      </style>
-    `);
-    doc.write('</head><body>');
-    doc.write(root.outerHTML);
-    doc.write('</body></html>');
-    doc.close();
-    const schedulePrint = () => {
-      win.focus();
-      win.print();
-      win.close();
-    };
-    if (win.document.readyState === 'complete') {
-      window.setTimeout(schedulePrint, 300);
-    } else {
-      win.addEventListener('load', () => window.setTimeout(schedulePrint, 300));
-    }
-  }, [quotationNumber]);
+    if (!printRef.current) return;
+    window.print();
+  }, []);
 
   // ── Dealer select ────────────────────────────────────────────────────────────
   const handleDealerSelect = useCallback((d: Dealer) => {
@@ -618,9 +576,9 @@ export default function PICreator({ dealers, products, variants }: Props) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-zinc-100">
+    <div className="min-h-screen bg-zinc-100 print:bg-white">
       {/* Top Bar */}
-      <div className="bg-white border-b border-red-700 sticky top-0 z-40">
+      <div className="bg-white border-b border-red-700 sticky top-0 z-40 print:hidden">
         <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold ">Create Purchase Order Invoice</h1>
@@ -639,9 +597,9 @@ export default function PICreator({ dealers, products, variants }: Props) {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-4 py-6 grid grid-cols-1 xl:grid-cols-[1fr_580px] gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 py-6 grid grid-cols-1 xl:grid-cols-[1fr_580px] gap-6 print:block print:max-w-none print:px-0 print:py-0">
         {/* ── Left: Form ── */}
-        <div className="space-y-5">
+        <div className="space-y-5 print:hidden">
 
           {/* Invoice Details */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -832,9 +790,9 @@ export default function PICreator({ dealers, products, variants }: Props) {
         </div>
 
         {/* ── Right: Preview ── */}
-        <div className="xl:sticky xl:top-[72px] xl:h-[calc(100vh-88px)] xl:overflow-y-auto">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
+        <div className="xl:sticky xl:top-[72px] xl:h-[calc(100vh-88px)] xl:overflow-y-auto print:static print:h-auto print:overflow-visible">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 print:border-0 print:rounded-none print:p-0">
+            <div className="flex items-center justify-between mb-3 print:hidden">
               <h2 className="text-sm font-semibold text-gray-700">Invoice Preview</h2>
               <button
                 onClick={handlePrint}
@@ -844,7 +802,7 @@ export default function PICreator({ dealers, products, variants }: Props) {
                 Print ↗
               </button>
             </div>
-            <div className="border border-gray-200 rounded overflow-hidden">
+            <div className="border border-gray-200 rounded overflow-hidden print:border-0 print:rounded-none">
               <InvoicePreview
                 quotationNumber={quotationNumber}
                 quotationDate={quotationDate}
