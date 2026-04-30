@@ -1,0 +1,105 @@
+import mongoose, { Schema } from 'mongoose';
+
+export interface SavedAddress {
+  city: string;
+  state: string;
+  address: string;
+  country: string;
+  pincode: string;
+}
+
+export interface SavedDealer {
+  id: number;
+  dealerId: string;
+  OEMProfileID: number;
+  dealerType: string;
+  orgName: string;
+  orgEmail: string;
+  contact: string;
+  gstNo: string;
+  billingAddress: SavedAddress;
+  shippingAddress: SavedAddress;
+  firstName: string;
+  lastName: string;
+  state: string;
+}
+
+export interface SavedManufacturingUnit {
+  id: number;
+  OEMProfileID: number;
+  unitName: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  gstNo: string;
+  phoneNo: string;
+  email: string;
+  accountNumber: string;
+}
+
+export interface SavedLineItem {
+  id: string;
+  productId: number;
+  variantId: number;
+  colour: string;
+  qty: number;
+  productName: string;
+  variantName: string;
+  HSN: string;
+  rate: number;
+  sgstPct: number;
+  cgstPct: number;
+  igstPct: number;
+  sgstAmount: number;
+  cgstAmount: number;
+  igstAmount: number;
+  taxableAmount: number;
+  totalAmount: number;
+}
+
+export interface SavedInvoice {
+  _id?: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  seqNumber: string;
+  manufacturingUnit: SavedManufacturingUnit;
+  dealer: SavedDealer;
+  lineItems: SavedLineItem[];
+  taxType: 'within_state' | 'other_state';
+  subTotal: number;
+  discount: number;
+  totalSGST: number;
+  totalCGST: number;
+  totalIGST: number;
+  totalGST: number;
+  insurance: number;
+  total: number;
+  createdAt?: string;
+}
+
+const InvoiceSchema = new Schema<SavedInvoice>(
+  {
+    invoiceNumber: { type: String, required: true, unique: true },
+    invoiceDate: { type: String, required: true },
+    dueDate: { type: String, required: true },
+    seqNumber: { type: String, required: true },
+    manufacturingUnit: { type: Schema.Types.Mixed, required: true },
+    dealer: { type: Schema.Types.Mixed, required: true },
+    lineItems: [{ type: Schema.Types.Mixed }],
+    taxType: { type: String, enum: ['within_state', 'other_state'], required: true },
+    subTotal: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    totalSGST: { type: Number, default: 0 },
+    totalCGST: { type: Number, default: 0 },
+    totalIGST: { type: Number, default: 0 },
+    totalGST: { type: Number, required: true },
+    insurance: { type: Number, default: 0 },
+    total: { type: Number, required: true },
+  },
+  { timestamps: true }
+);
+
+export const Invoice =
+  mongoose.models.Invoice || mongoose.model<SavedInvoice>('Invoice', InvoiceSchema);

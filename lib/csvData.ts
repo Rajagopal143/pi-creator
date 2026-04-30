@@ -188,3 +188,39 @@ export function loadProductVariants(): ProductVariant[] {
       isWBC: o.isWBC === '1',
     }));
 }
+
+export interface ManufacturingUnit {
+  id: number;
+  OEMProfileID: number;
+  unitName: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  gstNo: string;
+  phoneNo: string;
+  email: string;
+  accountNumber: string;
+}
+
+export function loadManufacturingUnits(): ManufacturingUnit[] {
+  const filePath = path.join(process.cwd(), 'public', 'manufacturing_units.csv');
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const objects = rowsToObjects(parseCSVRows(content));
+
+  return objects
+    .filter(o => o.id && o.unitName && o.isActive === '1')
+    .map(o => ({
+      id: Number(o.id),
+      OEMProfileID: Number(o.OEMProfileID) || 1,
+      unitName: o.unitName || '',
+      address: o.address || '',
+      city: o.city || '',
+      state: o.state || '',
+      pincode: o.pincode || '',
+      gstNo: o.gstNo || '',
+      phoneNo: o.phoneNo || '',
+      email: o.email || '',
+      accountNumber: o.accountNumber || '',
+    }));
+}
