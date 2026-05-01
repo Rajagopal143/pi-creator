@@ -6,7 +6,12 @@ export const metadata = {
   title: 'Create Purchase Order Invoice — Yakuza DMS',
 };
 
-export default async function CreatePIPage() {
+export default async function CreatePIPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invoiceId?: string }>;
+}) {
+  const { invoiceId } = await searchParams;
   let dealers = await getDealersForPIAction();
   if (dealers.length === 0) {
     dealers = loadDealers();
@@ -21,6 +26,7 @@ export default async function CreatePIPage() {
       products={products}
       variants={variants}
       manufacturingUnits={manufacturingUnits}
+      editInvoiceId={invoiceId}
     />
   );
 }

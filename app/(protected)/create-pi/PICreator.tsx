@@ -35,6 +35,7 @@ interface Props {
   products: Product[];
   variants: ProductVariant[];
   manufacturingUnits: ManufacturingUnit[];
+  editInvoiceId?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -55,12 +56,6 @@ function getVariantPrice(variant: ProductVariant, dealerType: string): number {
 
 function formatINR(n: number): string {
   return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDate(iso: string): string {
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
 }
 
 function todayISO(): string {
@@ -342,7 +337,7 @@ function PreviewModal({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function PICreator({ dealers, products, variants, manufacturingUnits }: Props) {
+export default function PICreator({ dealers, products, variants, manufacturingUnits, editInvoiceId }: Props) {
   const [dealerSearch, setDealerSearch] = useState('');
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
@@ -356,6 +351,9 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const [dueDate, setDueDate] = useState(futureDateISO(7));
   const [seqNumber, setSeqNumber] = useState('00001');
   const [discount, setDiscount] = useState(0);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const [shipToAddress, setShipToAddress] = useState<Dealer['shippingAddress'] | null>(null);
+  const [loadingInvoice, setLoadingInvoice] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -377,6 +375,49 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   useEffect(() => {
     void fetchNextSequence();
   }, [fetchNextSequence]);
+
+  useEffect(() => {
+    if (!editInvoiceId) return;
+    const loadInvoiceForEdit = async () => {
+      setLoadingInvoice(true);
+      setSaveError('');
+      try {
+        const res = await fetch(`/api/invoices/${editInvoiceId}`);
+        const json = await res.json() as { success: boolean; data?: Record<string, unknown>; message?: string };
+        if (!json.success || !json.data) throw new Error(json.message || 'Failed to load invoice');
+        const invoice = json.data;
+        const dealer = invoice.dealer as Dealer;
+        const manufacturingUnit = invoice.manufacturingUnit as ManufacturingUnit;
+        const loadedLineItems = (invoice.lineItems as LineItemState[]) || [];
+        setSelectedDealer(dealer);
+        setDealerSearch(dealer.orgName);
+        setSelectedMU(manufacturingUnit);
+        setTaxType((invoice.taxType as 'within_state' | 'other_state') || 'within_state');
+        setLineItems(
+          loadedLineItems.length > 0
+            ? loadedLineItems.map(item => ({
+                id: item.id,
+                productId: item.productId,
+                variantId: item.variantId,
+                colour: item.colour,
+                qty: item.qty,
+              }))
+            : [{ id: 'item-1', productId: null, variantId: null, colour: '', qty: 1 }],
+        );
+        setInvoiceDate((invoice.invoiceDate as string) || todayISO());
+        setDueDate((invoice.dueDate as string) || futureDateISO(7));
+        setSeqNumber((invoice.seqNumber as string) || '00001');
+        setDiscount(Number(invoice.discount || 0));
+        setInsuranceEnabled(invoice.insuranceEnabled !== false);
+        setShipToAddress(dealer.shippingAddress);
+      } catch (err: unknown) {
+        setSaveError(err instanceof Error ? err.message : 'Failed to load invoice');
+      } finally {
+        setLoadingInvoice(false);
+      }
+    };
+    void loadInvoiceForEdit();
+  }, [editInvoiceId]);
 
   // ── Computed line items ──────────────────────────────────────────────────────
   const computedItems = useMemo<ComputedLineItem[]>(() => {
@@ -416,8 +457,15 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const totalCGST  = useMemo(() => computedItems.reduce((s, i) => s + i.cgstAmount, 0), [computedItems]);
   const totalIGST  = useMemo(() => computedItems.reduce((s, i) => s + i.igstAmount, 0), [computedItems]);
   const totalGST   = totalSGST + totalCGST + totalIGST;
-  const insurance  = subTotal * INSURANCE_RATE;
+  const insurance  = insuranceEnabled ? subTotal * INSURANCE_RATE : 0;
   const total      = subTotal - discount + totalGST + insurance;
+  const effectiveDealer = useMemo<Dealer | null>(() => {
+    if (!selectedDealer) return null;
+    return {
+      ...selectedDealer,
+      shippingAddress: shipToAddress || selectedDealer.shippingAddress,
+    };
+  }, [selectedDealer, shipToAddress]);
 
   // ── Invoice number ───────────────────────────────────────────────────────────
   const invoiceNumber = useMemo(() => {
@@ -458,6 +506,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const handleDealerSelect = useCallback((d: Dealer) => {
     setSelectedDealer(d);
     setDealerSearch(d.orgName);
+    setShipToAddress(d.shippingAddress);
   }, []);
 
   // ── Preview modal ────────────────────────────────────────────────────────────
@@ -486,7 +535,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         dueDate,
         seqNumber,
         manufacturingUnit: selectedMU,
-        dealer: selectedDealer,
+        dealer: effectiveDealer,
         lineItems: computedItems,
         taxType,
         subTotal,
@@ -496,10 +545,13 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         totalIGST,
         totalGST,
         insurance,
+        insuranceEnabled,
         total,
       };
-      const res = await fetch('/api/invoices', {
-        method: 'POST',
+      const endpoint = editInvoiceId ? `/api/invoices/${editInvoiceId}` : '/api/invoices';
+      const method = editInvoiceId ? 'PUT' : 'POST';
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -513,9 +565,9 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       setSaving(false);
     }
   }, [
-    selectedDealer, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
+    selectedDealer, selectedMU, effectiveDealer, invoiceNumber, invoiceDate, dueDate, seqNumber,
     computedItems, taxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
-    totalGST, insurance, total, fetchNextSequence,
+    totalGST, insurance, insuranceEnabled, total, fetchNextSequence, editInvoiceId,
   ]);
 
   // ── Preview props ────────────────────────────────────────────────────────────
@@ -524,7 +576,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
     invoiceDate,
     dueDate,
     manufacturingUnit: selectedMU,
-    dealer: selectedDealer,
+    dealer: effectiveDealer,
     items: computedItems,
     taxType,
     subTotal,
@@ -534,6 +586,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
     totalIGST,
     totalGST,
     insurance,
+    insuranceEnabled,
     total,
   };
 
@@ -653,7 +706,13 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
           <DealerSearch
             dealers={dealers}
             value={dealerSearch}
-            onChange={v => { setDealerSearch(v); if (!v) setSelectedDealer(null); }}
+            onChange={v => {
+              setDealerSearch(v);
+              if (!v) {
+                setSelectedDealer(null);
+                setShipToAddress(null);
+              }
+            }}
             onSelect={handleDealerSelect}
           />
           {selectedDealer && (
@@ -671,9 +730,44 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                 <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-1">Ship To</div>
                 <div className="font-semibold text-gray-900 text-sm">{selectedDealer.orgName}</div>
                 <div className="text-xs text-gray-600 mt-1 leading-relaxed">
-                  {formatAddress(selectedDealer.shippingAddress)}<br />
+                  {formatAddress(shipToAddress || selectedDealer.shippingAddress)}<br />
                   Ph: {selectedDealer.contact} · {selectedDealer.orgEmail}<br />
                   GSTIN: {selectedDealer.gstNo}
+                </div>
+              </div>
+              <div className="sm:col-span-2 rounded-lg border border-red-200 bg-white p-3">
+                <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-2">
+                  Edit Ship To (This PI only)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={shipToAddress?.address || ''}
+                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), address: e.target.value }))}
+                    placeholder="Address"
+                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                  />
+                  <input
+                    type="text"
+                    value={shipToAddress?.city || ''}
+                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), city: e.target.value }))}
+                    placeholder="City"
+                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                  />
+                  <input
+                    type="text"
+                    value={shipToAddress?.state || ''}
+                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), state: e.target.value }))}
+                    placeholder="State"
+                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                  />
+                  <input
+                    type="text"
+                    value={shipToAddress?.pincode || ''}
+                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), pincode: e.target.value }))}
+                    placeholder="Pincode"
+                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                  />
                 </div>
               </div>
               <div className="sm:col-span-2 flex flex-wrap gap-3 pt-2 border-t border-red-100">
@@ -774,6 +868,15 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
               <span className="text-gray-500">Insurance <span className="text-[10px]">(@0.075%)</span></span>
               <span className="font-medium">{formatINR(insurance)}</span>
             </div>
+            <label className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Include Insurance</span>
+              <input
+                type="checkbox"
+                checked={insuranceEnabled}
+                onChange={e => setInsuranceEnabled(e.target.checked)}
+                className="h-4 w-4 accent-red-700"
+              />
+            </label>
             <div className="flex justify-between text-base font-bold border-t-2 border-gray-800 pt-2">
               <span>Total</span>
               <span>{formatINR(total)}</span>
@@ -795,10 +898,17 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Preview &amp; Confirm Invoice
+            {editInvoiceId ? 'Preview & Confirm PI Update' : 'Preview &amp; Confirm Invoice'}
           </button>
         </div>
       </div>
+      {loadingInvoice && (
+        <div className="fixed inset-0 z-40 bg-black/30 flex items-center justify-center print:hidden">
+          <div className="bg-white rounded-lg px-4 py-3 text-sm font-medium text-gray-700 shadow-lg">
+            Loading invoice for edit...
+          </div>
+        </div>
+      )}
 
       {/* ── Preview Modal ── */}
       <PreviewModal

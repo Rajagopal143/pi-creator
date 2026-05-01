@@ -5,8 +5,17 @@ import { Invoice } from '@/lib/invoiceModel';
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
+    const now = new Date().toISOString();
+    const status = (body.status as string) || 'Approved';
+    const statusDescription = (body.statusDescription as string) || 'Invoice created';
     const invoice = await Invoice.create(body);
+    if (!invoice.statusHistory || invoice.statusHistory.length === 0) {
+      invoice.status = status;
+      invoice.statusDescription = statusDescription;
+      invoice.statusHistory = [{ status, description: statusDescription, updatedAt: now }];
+      await invoice.save();
+    }
     return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to save invoice';

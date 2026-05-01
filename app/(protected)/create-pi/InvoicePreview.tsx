@@ -67,6 +67,7 @@ export interface InvoicePreviewProps {
   totalIGST: number;
   totalGST: number;
   insurance: number;
+  insuranceEnabled?: boolean;
   total: number;
 }
 
@@ -106,6 +107,7 @@ export default function InvoicePreview({
   totalIGST,
   totalGST,
   insurance,
+  insuranceEnabled = true,
   total,
 }: InvoicePreviewProps) {
   const isOtherState = taxType === 'other_state';
@@ -141,14 +143,7 @@ export default function InvoicePreview({
         </div>
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-widest font-semibold text-red-700">Yakuza DMS</div>
-          <div className="text-2xl font-bold text-black tracking-widest">INVOICE</div>
-          <div className="text-[10px] mt-1 font-medium">
-            {isOtherState ? (
-              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Other State · IGST</span>
-            ) : (
-              <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">Within State · SGST+CGST</span>
-            )}
-          </div>
+          <div className="text-2xl font-bold text-black tracking-widest">PROFORMA INVOICE</div>
         </div>
       </div>
 
@@ -316,10 +311,12 @@ export default function InvoicePreview({
             <span className="text-gray-500 uppercase tracking-wide">Total GST</span>
             <span className="font-medium">{formatINR(totalGST)}</span>
           </div>
-          <div className="flex justify-between text-[10px]">
-            <span className="text-gray-500 uppercase tracking-wide">Insurance (@0.075%)</span>
-            <span className="font-medium">{formatINR(insurance)}</span>
-          </div>
+          {insuranceEnabled && (
+            <div className="flex justify-between text-[10px]">
+              <span className="text-gray-500 uppercase tracking-wide">Insurance (@0.075%)</span>
+              <span className="font-medium">{formatINR(insurance)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm font-bold border-t-2 border-gray-800 pt-1.5">
             <span className="uppercase tracking-wide">Total</span>
             <span>{formatINR(total)}</span>

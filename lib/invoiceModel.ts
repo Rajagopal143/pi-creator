@@ -1,4 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
+import { PI_STATUSES } from '@/lib/invoiceStatus';
+import type { PIStatus } from '@/lib/invoiceStatus';
 
 export interface SavedAddress {
   city: string;
@@ -76,6 +78,14 @@ export interface SavedInvoice {
   totalGST: number;
   insurance: number;
   total: number;
+  insuranceEnabled?: boolean;
+  status?: PIStatus;
+  statusDescription?: string;
+  statusHistory?: Array<{
+    status: PIStatus;
+    description: string;
+    updatedAt: string;
+  }>;
   createdAt?: string;
 }
 
@@ -97,6 +107,20 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     totalGST: { type: Number, required: true },
     insurance: { type: Number, default: 0 },
     total: { type: Number, required: true },
+    insuranceEnabled: { type: Boolean, default: true },
+    status: {
+      type: String,
+      enum: PI_STATUSES,
+      default: 'Approved',
+    },
+    statusDescription: { type: String, default: 'Invoice created' },
+    statusHistory: [
+      {
+        status: { type: String, enum: PI_STATUSES },
+        description: { type: String, default: '' },
+        updatedAt: { type: String, required: true },
+      },
+    ],
   },
   { timestamps: true }
 );
