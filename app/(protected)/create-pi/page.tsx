@@ -1,12 +1,16 @@
 import { loadDealers, loadProducts, loadProductVariants, loadManufacturingUnits } from '@/lib/csvData';
+import { getDealersForPIAction } from '@/lib/dealers/server-actions';
 import PICreator from './PICreator';
 
 export const metadata = {
   title: 'Create Purchase Order Invoice — Yakuza DMS',
 };
 
-export default function CreatePIPage() {
-  const dealers             = loadDealers();
+export default async function CreatePIPage() {
+  let dealers = await getDealersForPIAction();
+  if (dealers.length === 0) {
+    dealers = loadDealers();
+  }
   const products            = loadProducts();
   const variants            = loadProductVariants();
   const manufacturingUnits  = loadManufacturingUnits();

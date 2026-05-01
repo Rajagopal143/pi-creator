@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { loadManufacturingUnits } from '@/lib/csvData';
 import InvoiceList from './InvoiceList';
 
 export const metadata: Metadata = {
@@ -6,5 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default function InvoicesPage() {
-  return <InvoiceList />;
+  const manufacturingUnits = loadManufacturingUnits();
+  return <InvoiceList manufacturingUnits={manufacturingUnits} />;
 }

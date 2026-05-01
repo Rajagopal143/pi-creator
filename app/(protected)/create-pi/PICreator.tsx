@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { Dealer, Product, ProductVariant, ManufacturingUnit } from '@/lib/csvData';
 import InvoicePreview from './InvoicePreview';
 import type { InvoicePreviewProps } from './InvoicePreview';
@@ -345,7 +343,6 @@ function PreviewModal({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PICreator({ dealers, products, variants, manufacturingUnits }: Props) {
-  const router = useRouter();
   const [dealerSearch, setDealerSearch] = useState('');
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
@@ -457,12 +454,6 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
     setLineItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
   }, []);
 
-  // ── Logout ───────────────────────────────────────────────────────────────────
-  const handleLogout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.replace('/login');
-  }, [router]);
-
   // ── Dealer select ────────────────────────────────────────────────────────────
   const handleDealerSelect = useCallback((d: Dealer) => {
     setSelectedDealer(d);
@@ -554,49 +545,6 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       {/* ── Print-only area (hidden on screen, shown when printing) ── */}
       <div className="hidden print:block">
         <InvoicePreview {...previewProps} />
-      </div>
-
-      {/* ── Top Bar ── */}
-      <div className="bg-zinc-900 text-white border-b border-red-700 sticky top-0 z-40 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-base font-bold text-white">Yakuza DMS</h1>
-            <nav className="flex items-center gap-1">
-              <Link
-                href="/create-pi"
-                className="text-sm px-3 py-1.5 rounded-md bg-red-700 text-white font-medium"
-              >
-                Create Invoice
-              </Link>
-              <Link
-                href="/invoices"
-                className="text-sm px-3 py-1.5 rounded-md text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors"
-              >
-                All Invoices
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenModal}
-              disabled={!canConfirm}
-              className="flex items-center gap-2 bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Preview &amp; Confirm
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-zinc-400 hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-zinc-700 transition-colors"
-              title="Sign out"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* ── Form ── */}

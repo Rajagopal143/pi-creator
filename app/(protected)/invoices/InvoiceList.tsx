@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import InvoicePreview from '@/app/create-pi/InvoicePreview';
-import type { InvoicePreviewProps } from '@/app/create-pi/InvoicePreview';
+import InvoicePreview from '@/app/(protected)/create-pi/InvoicePreview';
+import type { InvoicePreviewProps } from '@/app/(protected)/create-pi/InvoicePreview';
 import type { SavedInvoice } from '@/lib/invoiceModel';
+import type { ManufacturingUnit } from '@/lib/csvData';
+import { Button } from '@/components/ui/button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,8 +125,11 @@ function ViewModal({
 
 const LIMIT = 20;
 
-export default function InvoiceList() {
-  const router = useRouter();
+interface InvoiceListProps {
+  manufacturingUnits: ManufacturingUnit[];
+}
+
+export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [invoices, setInvoices]       = useState<SavedInvoice[]>([]);
   const [meta, setMeta]               = useState({ total: 0, page: 1, totalPages: 1 });
   const [loading, setLoading]         = useState(true);
@@ -133,6 +137,7 @@ export default function InvoiceList() {
 
   const [search, setSearch]           = useState('');
   const [taxTypeFilter, setTaxType]   = useState('');
+  const [manufacturingUnitId, setManufacturingUnitId] = useState('');
   const [startDate, setStartDate]     = useState('');
   const [endDate, setEndDate]         = useState('');
   const [page, setPage]               = useState(1);
@@ -148,6 +153,7 @@ export default function InvoiceList() {
       params.set('limit', String(LIMIT));
       if (search)        params.set('search', search);
       if (taxTypeFilter) params.set('taxType', taxTypeFilter);
+      if (manufacturingUnitId) params.set('manufacturingUnitId', manufacturingUnitId);
       if (startDate)     params.set('startDate', startDate);
       if (endDate)       params.set('endDate', endDate);
 
@@ -161,7 +167,7 @@ export default function InvoiceList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, taxTypeFilter, startDate, endDate]);
+  }, [page, search, taxTypeFilter, manufacturingUnitId, startDate, endDate]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
@@ -170,49 +176,23 @@ export default function InvoiceList() {
   const clearFilters = () => {
     setSearch('');
     setTaxType('');
+    setManufacturingUnitId('');
     setStartDate('');
     setEndDate('');
     setPage(1);
   };
 
-  return (
-    <div className="min-h-screen bg-zinc-100 print:hidden">
-      {/* Top Bar */}
-      <div className="bg-zinc-900 text-white border-b border-red-700 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-base font-bold text-white">Yakuza DMS</h1>
-            <nav className="flex items-center gap-1">
-              <Link
-                href="/create-pi"
-                className="text-sm px-3 py-1.5 rounded-md text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors"
-              >
-                Create Invoice
-              </Link>
-              <Link
-                href="/invoices"
-                className="text-sm px-3 py-1.5 rounded-md bg-red-700 text-white font-medium"
-              >
-                All Invoices
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-400">{meta.total} invoice{meta.total !== 1 ? 's' : ''} total</span>
-            <button
-              onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                router.replace('/login');
-              }}
-              className="text-zinc-400 hover:text-white text-xs px-3 py-1.5 rounded-lg hover:bg-zinc-700 transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </div>
+  const hasActiveFilters =
+    !!search || !!taxTypeFilter || !!manufacturingUnitId || !!startDate || !!endDate;
 
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+  return (
+    <div className="min-h-0 bg-zinc-100 print:hidden">
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {meta.total} invoice{meta.total !== 1 ? 's' : ''} total
+          </p>
+        </div>
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex flex-wrap gap-3 items-end">
@@ -243,6 +223,23 @@ export default function InvoiceList() {
               </select>
             </div>
 
+            {/* Manufacturing unit */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Manufacturing Unit</label>
+              <select
+                value={manufacturingUnitId}
+                onChange={e => { setManufacturingUnitId(e.target.value); setPage(1); }}
+                className="min-w-[200px] max-w-[280px] border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+              >
+                <option value="">All units</option>
+                {manufacturingUnits.map(mu => (
+                  <option key={mu.id} value={String(mu.id)}>
+                    {mu.unitName} ({mu.state})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Date range */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
@@ -264,19 +261,13 @@ export default function InvoiceList() {
             </div>
 
             {/* Buttons */}
-            <button
-              onClick={handleSearch}
-              className="bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
-            >
+            <Button type="button" onClick={handleSearch} className="bg-primary">
               Search
-            </button>
-            {(search || taxTypeFilter || startDate || endDate) && (
-              <button
-                onClick={clearFilters}
-                className="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
+            </Button>
+            {hasActiveFilters && (
+              <Button type="button" variant="outline" onClick={clearFilters}>
                 Clear
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -316,11 +307,11 @@ export default function InvoiceList() {
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center">
                       <div className="text-gray-400 text-sm">
-                        {search || taxTypeFilter || startDate || endDate
+                        {hasActiveFilters
                           ? 'No invoices match your filters.'
                           : 'No invoices saved yet. Create your first invoice!'}
                       </div>
-                      {!search && !taxTypeFilter && !startDate && !endDate && (
+                      {!hasActiveFilters && (
                         <Link
                           href="/create-pi"
                           className="mt-3 inline-block text-sm text-red-700 hover:text-red-800 font-medium"

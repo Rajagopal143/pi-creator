@@ -46,8 +46,14 @@ export async function GET(req: NextRequest) {
     const taxType = searchParams.get('taxType') || '';
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || '';
+    const manufacturingUnitId = searchParams.get('manufacturingUnitId') || '';
 
     const query: Record<string, unknown> = {};
+
+    if (manufacturingUnitId) {
+      const id = Number(manufacturingUnitId);
+      if (!Number.isNaN(id)) query['manufacturingUnit.id'] = id;
+    }
 
     if (search) {
       query.$or = [
