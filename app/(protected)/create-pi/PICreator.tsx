@@ -7,12 +7,17 @@ import type { InvoicePreviewProps } from './InvoicePreview';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type AccessoryType = 'none' | 'black' | 'steel';
+type PriceTier = 'dealer' | 'distributor' | 'subdealer' | 'areadealer';
+type DealerAddress = Dealer['billingAddress'];
+
 interface LineItemState {
   id: string;
   productId: number | null;
   variantId: number | null;
   colour: string;
   qty: number;
+  accessory: AccessoryType;
 }
 
 interface ComputedLineItem extends LineItemState {
@@ -27,6 +32,7 @@ interface ComputedLineItem extends LineItemState {
   cgstAmount: number;
   igstAmount: number;
   taxableAmount: number;
+  accessoryCharge: number;
   totalAmount: number;
 }
 
@@ -42,10 +48,26 @@ interface Props {
 
 const INSURANCE_RATE = 0.075 / 100;
 
+/** GST-inclusive flat charge added to a line total when an accessory is selected. */
+const ACCESSORY_CHARGE: Record<AccessoryType, number> = {
+  none: 0,
+  black: 1000,
+  steel: 1500,
+};
+
+const PRICE_TIERS: { value: PriceTier; label: string }[] = [
+  { value: 'dealer',      label: 'Dealer' },
+  { value: 'distributor', label: 'Distributor' },
+  { value: 'subdealer',   label: 'Subdealer' },
+  { value: 'areadealer',  label: 'Area Dealer' },
+];
+
+const EMPTY_ADDRESS: DealerAddress = { address: '', city: '', state: '', country: '', pincode: '' };
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-function getVariantPrice(variant: ProductVariant, dealerType: string): number {
-  switch (dealerType) {
+function getVariantPrice(variant: ProductVariant, tier: PriceTier): number {
+  switch (tier) {
     case 'dealer':      return variant.dealerPrice;
     case 'distributor': return variant.distributorPrice;
     case 'subdealer':   return variant.subdealerPrice;
@@ -68,20 +90,75 @@ function futureDateISO(days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-function formatAddress(addr: Dealer['billingAddress']): string {
-  if (!addr) return '';
-  return [addr.address, addr.city, addr.state, addr.country, addr.pincode].filter(Boolean).join(', ');
+function normalizeAddress(addr?: Partial<DealerAddress> | null): DealerAddress {
+  return { ...EMPTY_ADDRESS, ...(addr || {}) };
+}
+
+// ─── EditableField (inline contentEditable, not an input box) ───────────────────
+
+function EditableField({
+  value, onCommit, placeholder, className = '',
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      data-placeholder={placeholder}
+      onBlur={e => onCommit((e.currentTarget.textContent || '').trim())}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+      }}
+      className={`inline-block min-w-[2ch] rounded-sm px-1 outline-none border-b border-dashed border-gray-300 hover:bg-yellow-50 focus:bg-yellow-50 focus:border-red-500 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-300 ${className}`}
+    >
+      {value}
+    </span>
+  );
+}
+
+// ─── EditableAddressBlock ───────────────────────────────────────────────────────
+
+function EditableAddressBlock({
+  addr, onChange,
+}: {
+  addr: DealerAddress;
+  onChange: (a: DealerAddress) => void;
+}) {
+  const set = (field: keyof DealerAddress) => (val: string) => onChange({ ...addr, [field]: val });
+  return (
+    <div className="text-xs text-gray-700 leading-loose">
+      <div>
+        <EditableField value={addr.address} onCommit={set('address')} placeholder="Address" />
+      </div>
+      <div>
+        <EditableField value={addr.city} onCommit={set('city')} placeholder="City" />
+        <span className="text-gray-400">, </span>
+        <EditableField value={addr.state} onCommit={set('state')} placeholder="State" />
+        <span className="text-gray-400"> · </span>
+        <EditableField value={addr.pincode} onCommit={set('pincode')} placeholder="Pincode" />
+      </div>
+      <div>
+        <EditableField value={addr.country} onCommit={set('country')} placeholder="Country" />
+      </div>
+    </div>
+  );
 }
 
 // ─── DealerSearch ─────────────────────────────────────────────────────────────
 
 function DealerSearch({
-  dealers, value, onChange, onSelect,
+  dealers, value, onChange, onSelect, placeholder,
 }: {
   dealers: Dealer[];
   value: string;
   onChange: (v: string) => void;
   onSelect: (d: Dealer) => void;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,7 +190,7 @@ function DealerSearch({
     <div className="relative" ref={containerRef}>
       <input
         type="text"
-        placeholder="Search dealer by name, ID or city…"
+        placeholder={placeholder || 'Search dealer by name, ID or city…'}
         value={value}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
@@ -144,13 +221,13 @@ function DealerSearch({
 // ─── LineItemRow ──────────────────────────────────────────────────────────────
 
 function LineItemRow({
-  item, index, products, variants, dealerType, onUpdate, onRemove,
+  item, index, products, variants, priceTier, onUpdate, onRemove,
 }: {
   item: ComputedLineItem;
   index: number;
   products: Product[];
   variants: ProductVariant[];
-  dealerType: string;
+  priceTier: PriceTier;
   onUpdate: (id: string, updates: Partial<LineItemState>) => void;
   onRemove: (id: string) => void;
 }) {
@@ -186,7 +263,7 @@ function LineItemRow({
           <option value="">— Select Variant —</option>
           {productVariants.map(v => (
             <option key={v.id} value={v.id}>
-              {v.name} — {formatINR(getVariantPrice(v, dealerType))}
+              {v.name} — {formatINR(getVariantPrice(v, priceTier))}
             </option>
           ))}
         </select>
@@ -204,6 +281,28 @@ function LineItemRow({
           ))}
         </select>
       </td>
+      <td className="py-2 px-2 w-40">
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={item.accessory === 'black'}
+              onChange={e => onUpdate(item.id, { accessory: e.target.checked ? 'black' : 'none' })}
+              className="h-3.5 w-3.5 accent-gray-800"
+            />
+            Black Accessory <span className="text-gray-400">+₹1,000</span>
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={item.accessory === 'steel'}
+              onChange={e => onUpdate(item.id, { accessory: e.target.checked ? 'steel' : 'none' })}
+              className="h-3.5 w-3.5 accent-gray-800"
+            />
+            Steel Accessory <span className="text-gray-400">+₹1,500</span>
+          </label>
+        </div>
+      </td>
       <td className="py-2 px-2 w-20">
         <input
           type="number"
@@ -217,7 +316,12 @@ function LineItemRow({
         {item.rate > 0 ? formatINR(item.rate) : '—'}
       </td>
       <td className="py-2 px-2 text-right text-sm font-medium text-gray-800 w-28 whitespace-nowrap">
-        {item.taxableAmount > 0 ? formatINR(item.taxableAmount) : '—'}
+        {item.totalAmount > 0 ? formatINR(item.totalAmount) : '—'}
+        {item.accessoryCharge > 0 && (
+          <span className="block text-[10px] text-gray-400 font-normal">
+            incl. {formatINR(item.accessoryCharge)} accessory
+          </span>
+        )}
       </td>
       <td className="py-2 px-2 w-8 text-center">
         <button
@@ -338,21 +442,30 @@ function PreviewModal({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PICreator({ dealers, products, variants, manufacturingUnits, editInvoiceId }: Props) {
-  const [dealerSearch, setDealerSearch] = useState('');
-  const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
+  // Bill To dealer
+  const [billToSearch, setBillToSearch] = useState('');
+  const [billToDealer, setBillToDealer] = useState<Dealer | null>(null);
+  const [billToAddr, setBillToAddr] = useState<DealerAddress>(EMPTY_ADDRESS);
+
+  // Ship To dealer (separate from Bill To)
+  const [shipToSearch, setShipToSearch] = useState('');
+  const [shipToDealer, setShipToDealer] = useState<Dealer | null>(null);
+  const [shipToAddr, setShipToAddr] = useState<DealerAddress>(EMPTY_ADDRESS);
+
+  const [priceTier, setPriceTier] = useState<PriceTier>('dealer');
+
   const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
     manufacturingUnits.length === 1 ? manufacturingUnits[0] : null,
   );
   const [taxType, setTaxType] = useState<'within_state' | 'other_state'>('within_state');
   const [lineItems, setLineItems] = useState<LineItemState[]>([
-    { id: 'item-1', productId: null, variantId: null, colour: '', qty: 1 },
+    { id: 'item-1', productId: null, variantId: null, colour: '', qty: 1, accessory: 'none' },
   ]);
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState(futureDateISO(7));
   const [seqNumber, setSeqNumber] = useState('00001');
   const [discount, setDiscount] = useState(0);
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
-  const [shipToAddress, setShipToAddress] = useState<Dealer['shippingAddress'] | null>(null);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
@@ -386,11 +499,20 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         const json = await res.json() as { success: boolean; data?: Record<string, unknown>; message?: string };
         if (!json.success || !json.data) throw new Error(json.message || 'Failed to load invoice');
         const invoice = json.data;
-        const dealer = invoice.dealer as Dealer;
+        const billDealer = invoice.dealer as Dealer;
+        const shipDealer = (invoice.shipToDealer as Dealer) || billDealer;
         const manufacturingUnit = invoice.manufacturingUnit as ManufacturingUnit;
         const loadedLineItems = (invoice.lineItems as LineItemState[]) || [];
-        setSelectedDealer(dealer);
-        setDealerSearch(dealer.orgName);
+
+        setBillToDealer(billDealer);
+        setBillToSearch(billDealer.orgName);
+        setBillToAddr(normalizeAddress(billDealer.billingAddress));
+
+        setShipToDealer(shipDealer);
+        setShipToSearch(shipDealer.orgName);
+        // Legacy invoices stored the ship address on dealer.shippingAddress.
+        setShipToAddr(normalizeAddress(shipDealer.shippingAddress || shipDealer.billingAddress));
+
         setSelectedMU(manufacturingUnit);
         setTaxType((invoice.taxType as 'within_state' | 'other_state') || 'within_state');
         setLineItems(
@@ -401,15 +523,15 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                 variantId: item.variantId,
                 colour: item.colour,
                 qty: item.qty,
+                accessory: (item.accessory as AccessoryType) || 'none',
               }))
-            : [{ id: 'item-1', productId: null, variantId: null, colour: '', qty: 1 }],
+            : [{ id: 'item-1', productId: null, variantId: null, colour: '', qty: 1, accessory: 'none' }],
         );
         setInvoiceDate((invoice.invoiceDate as string) || todayISO());
         setDueDate((invoice.dueDate as string) || futureDateISO(7));
         setSeqNumber((invoice.seqNumber as string) || '00001');
         setDiscount(Number(invoice.discount || 0));
         setInsuranceEnabled(invoice.insuranceEnabled !== false);
-        setShipToAddress(dealer.shippingAddress);
       } catch (err: unknown) {
         setSaveError(err instanceof Error ? err.message : 'Failed to load invoice');
       } finally {
@@ -424,7 +546,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
     return lineItems.map(item => {
       const product = products.find(p => p.id === item.productId);
       const variant = variants.find(v => v.id === item.variantId);
-      const rate = variant && selectedDealer ? getVariantPrice(variant, selectedDealer.dealerType) : 0;
+      const rate = variant ? getVariantPrice(variant, priceTier) : 0;
       const taxableAmount = rate * item.qty;
       const sgstPct = product?.sgst ?? 0;
       const cgstPct = product?.cgst ?? 0;
@@ -433,6 +555,9 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       const sgstAmount = taxType === 'within_state' ? (taxableAmount * sgstPct) / 100 : 0;
       const cgstAmount = taxType === 'within_state' ? (taxableAmount * cgstPct) / 100 : 0;
       const igstAmount = taxType === 'other_state' ? (taxableAmount * igstPct) / 100 : 0;
+
+      // Accessory charge is GST-inclusive — added flat to the line total.
+      const accessoryCharge = ACCESSORY_CHARGE[item.accessory] ?? 0;
 
       return {
         ...item,
@@ -447,34 +572,40 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         cgstAmount,
         igstAmount,
         taxableAmount,
-        totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount,
+        accessoryCharge,
+        totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount + accessoryCharge,
       };
     });
-  }, [lineItems, products, variants, selectedDealer, taxType]);
+  }, [lineItems, products, variants, priceTier, taxType]);
 
-  const subTotal   = useMemo(() => computedItems.reduce((s, i) => s + i.taxableAmount, 0), [computedItems]);
-  const totalSGST  = useMemo(() => computedItems.reduce((s, i) => s + i.sgstAmount, 0), [computedItems]);
-  const totalCGST  = useMemo(() => computedItems.reduce((s, i) => s + i.cgstAmount, 0), [computedItems]);
-  const totalIGST  = useMemo(() => computedItems.reduce((s, i) => s + i.igstAmount, 0), [computedItems]);
+  const subTotal       = useMemo(() => computedItems.reduce((s, i) => s + i.taxableAmount, 0), [computedItems]);
+  const totalSGST      = useMemo(() => computedItems.reduce((s, i) => s + i.sgstAmount, 0), [computedItems]);
+  const totalCGST      = useMemo(() => computedItems.reduce((s, i) => s + i.cgstAmount, 0), [computedItems]);
+  const totalIGST      = useMemo(() => computedItems.reduce((s, i) => s + i.igstAmount, 0), [computedItems]);
+  const totalAccessory = useMemo(() => computedItems.reduce((s, i) => s + i.accessoryCharge, 0), [computedItems]);
   const totalGST   = totalSGST + totalCGST + totalIGST;
   const insurance  = insuranceEnabled ? subTotal * INSURANCE_RATE : 0;
-  const total      = subTotal - discount + totalGST + insurance;
-  const effectiveDealer = useMemo<Dealer | null>(() => {
-    if (!selectedDealer) return null;
-    return {
-      ...selectedDealer,
-      shippingAddress: shipToAddress || selectedDealer.shippingAddress,
-    };
-  }, [selectedDealer, shipToAddress]);
+  const total      = subTotal - discount + totalGST + insurance + totalAccessory;
+
+  // Effective dealers carry the inline-edited addresses for this PI only.
+  const effectiveBillTo = useMemo<Dealer | null>(() => {
+    if (!billToDealer) return null;
+    return { ...billToDealer, billingAddress: billToAddr };
+  }, [billToDealer, billToAddr]);
+
+  const effectiveShipTo = useMemo<Dealer | null>(() => {
+    if (!shipToDealer) return null;
+    return { ...shipToDealer, shippingAddress: shipToAddr };
+  }, [shipToDealer, shipToAddr]);
 
   // ── Invoice number ───────────────────────────────────────────────────────────
   const invoiceNumber = useMemo(() => {
-    if (!selectedDealer) return `PO-INV-?-?-${new Date(invoiceDate).getFullYear()}-${seqNumber}`;
-    const oemId     = selectedDealer.OEMProfileID;
-    const dealerNum = selectedDealer.dealerId.replace(/\D/g, '').replace(/^0+/, '') || '0';
+    if (!billToDealer) return `PO-INV-?-?-${new Date(invoiceDate).getFullYear()}-${seqNumber}`;
+    const oemId     = billToDealer.OEMProfileID;
+    const dealerNum = billToDealer.dealerId.replace(/\D/g, '').replace(/^0+/, '') || '0';
     const year      = new Date(invoiceDate).getFullYear();
     return `PO-INV-${oemId}-${dealerNum}-${year}-${seqNumber}`;
-  }, [selectedDealer, invoiceDate, seqNumber]);
+  }, [billToDealer, invoiceDate, seqNumber]);
 
   // ── Line item CRUD ───────────────────────────────────────────────────────────
   const updateLineItem = useCallback((id: string, updates: Partial<LineItemState>) => {
@@ -494,7 +625,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const addLineItem = useCallback(() => {
     setLineItems(prev => [
       ...prev,
-      { id: `item-${Date.now()}`, productId: null, variantId: null, colour: '', qty: 1 },
+      { id: `item-${Date.now()}`, productId: null, variantId: null, colour: '', qty: 1, accessory: 'none' },
     ]);
   }, []);
 
@@ -503,10 +634,17 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   }, []);
 
   // ── Dealer select ────────────────────────────────────────────────────────────
-  const handleDealerSelect = useCallback((d: Dealer) => {
-    setSelectedDealer(d);
-    setDealerSearch(d.orgName);
-    setShipToAddress(d.shippingAddress);
+  const handleBillToSelect = useCallback((d: Dealer) => {
+    setBillToDealer(d);
+    setBillToSearch(d.orgName);
+    setBillToAddr(normalizeAddress(d.billingAddress));
+  }, []);
+
+  const handleShipToSelect = useCallback((d: Dealer) => {
+    setShipToDealer(d);
+    setShipToSearch(d.orgName);
+    // Ship To is filled from the selected dealer's BILLING address, then editable.
+    setShipToAddr(normalizeAddress(d.billingAddress));
   }, []);
 
   // ── Preview modal ────────────────────────────────────────────────────────────
@@ -525,7 +663,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
 
   // ── Save to DB ───────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!selectedDealer || !selectedMU) return;
+    if (!effectiveBillTo || !effectiveShipTo || !selectedMU) return;
     setSaving(true);
     setSaveError('');
     try {
@@ -535,7 +673,8 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         dueDate,
         seqNumber,
         manufacturingUnit: selectedMU,
-        dealer: effectiveDealer,
+        dealer: effectiveBillTo,
+        shipToDealer: effectiveShipTo,
         lineItems: computedItems,
         taxType,
         subTotal,
@@ -544,6 +683,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         totalCGST,
         totalIGST,
         totalGST,
+        totalAccessory,
         insurance,
         insuranceEnabled,
         total,
@@ -565,9 +705,9 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       setSaving(false);
     }
   }, [
-    selectedDealer, selectedMU, effectiveDealer, invoiceNumber, invoiceDate, dueDate, seqNumber,
+    effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
     computedItems, taxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
-    totalGST, insurance, insuranceEnabled, total, fetchNextSequence, editInvoiceId,
+    totalGST, totalAccessory, insurance, insuranceEnabled, total, fetchNextSequence, editInvoiceId,
   ]);
 
   // ── Preview props ────────────────────────────────────────────────────────────
@@ -576,7 +716,8 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
     invoiceDate,
     dueDate,
     manufacturingUnit: selectedMU,
-    dealer: effectiveDealer,
+    dealer: effectiveBillTo,
+    shipToDealer: effectiveShipTo,
     items: computedItems,
     taxType,
     subTotal,
@@ -585,12 +726,13 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
     totalCGST,
     totalIGST,
     totalGST,
+    totalAccessory,
     insurance,
     insuranceEnabled,
     total,
   };
 
-  const canConfirm = !!selectedDealer && !!selectedMU && computedItems.some(i => i.productId);
+  const canConfirm = !!billToDealer && !!shipToDealer && !!selectedMU && computedItems.some(i => i.productId);
 
   return (
     <div className="min-h-screen bg-zinc-100 print:bg-white">
@@ -700,98 +842,94 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
           </div>
         </div>
 
-        {/* Dealer Selection */}
+        {/* Bill To / Ship To */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Dealer</h2>
-          <DealerSearch
-            dealers={dealers}
-            value={dealerSearch}
-            onChange={v => {
-              setDealerSearch(v);
-              if (!v) {
-                setSelectedDealer(null);
-                setShipToAddress(null);
-              }
-            }}
-            onSelect={handleDealerSelect}
-          />
-          {selectedDealer && (
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-red-50 rounded-lg border border-red-100">
-              <div>
-                <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-1">Bill To</div>
-                <div className="font-semibold text-gray-900 text-sm">{selectedDealer.orgName}</div>
-                <div className="text-xs text-gray-600 mt-1 leading-relaxed">
-                  {formatAddress(selectedDealer.billingAddress)}<br />
-                  Ph: {selectedDealer.contact} · {selectedDealer.orgEmail}<br />
-                  GSTIN: {selectedDealer.gstNo}
+          <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">
+            Bill To &amp; Ship To
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* Bill To */}
+            <div>
+              <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-1">Bill To Dealer</div>
+              <DealerSearch
+                dealers={dealers}
+                value={billToSearch}
+                onChange={v => {
+                  setBillToSearch(v);
+                  if (!v) { setBillToDealer(null); setBillToAddr(EMPTY_ADDRESS); }
+                }}
+                onSelect={handleBillToSelect}
+                placeholder="Search Bill To dealer…"
+              />
+              {billToDealer && (
+                <div key={`bill-${billToDealer.id}`} className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
+                  <div className="font-semibold text-gray-900 text-sm">{billToDealer.orgName}</div>
+                  <div className="text-[10px] text-gray-500 mb-2">
+                    {billToDealer.dealerId} · Ph: {billToDealer.contact} · GSTIN: {billToDealer.gstNo}
+                  </div>
+                  <div className="text-[10px] uppercase font-semibold text-gray-400 tracking-wide">
+                    Billing Address (click any value to edit)
+                  </div>
+                  <EditableAddressBlock addr={billToAddr} onChange={setBillToAddr} />
                 </div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-1">Ship To</div>
-                <div className="font-semibold text-gray-900 text-sm">{selectedDealer.orgName}</div>
-                <div className="text-xs text-gray-600 mt-1 leading-relaxed">
-                  {formatAddress(shipToAddress || selectedDealer.shippingAddress)}<br />
-                  Ph: {selectedDealer.contact} · {selectedDealer.orgEmail}<br />
-                  GSTIN: {selectedDealer.gstNo}
-                </div>
-              </div>
-              <div className="sm:col-span-2 rounded-lg border border-red-200 bg-white p-3">
-                <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-2">
-                  Edit Ship To (This PI only)
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={shipToAddress?.address || ''}
-                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), address: e.target.value }))}
-                    placeholder="Address"
-                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
-                  />
-                  <input
-                    type="text"
-                    value={shipToAddress?.city || ''}
-                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), city: e.target.value }))}
-                    placeholder="City"
-                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
-                  />
-                  <input
-                    type="text"
-                    value={shipToAddress?.state || ''}
-                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), state: e.target.value }))}
-                    placeholder="State"
-                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
-                  />
-                  <input
-                    type="text"
-                    value={shipToAddress?.pincode || ''}
-                    onChange={e => setShipToAddress(prev => ({ ...(prev || selectedDealer.shippingAddress), pincode: e.target.value }))}
-                    placeholder="Pincode"
-                    className="border border-zinc-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-600"
-                  />
-                </div>
-              </div>
-              <div className="sm:col-span-2 flex flex-wrap gap-3 pt-2 border-t border-red-100">
-                <span className="text-xs text-gray-500">ID: <strong>{selectedDealer.dealerId}</strong></span>
-                <span className="text-xs text-gray-500">Type: <strong className="capitalize">{selectedDealer.dealerType}</strong></span>
-                <span className="text-xs text-gray-500">OEM: <strong>{selectedDealer.OEMProfileID}</strong></span>
-              </div>
+              )}
             </div>
-          )}
+
+            {/* Ship To */}
+            <div>
+              <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-1">Ship To Dealer</div>
+              <DealerSearch
+                dealers={dealers}
+                value={shipToSearch}
+                onChange={v => {
+                  setShipToSearch(v);
+                  if (!v) { setShipToDealer(null); setShipToAddr(EMPTY_ADDRESS); }
+                }}
+                onSelect={handleShipToSelect}
+                placeholder="Search Ship To dealer…"
+              />
+              {shipToDealer && (
+                <div key={`ship-${shipToDealer.id}`} className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
+                  <div className="font-semibold text-gray-900 text-sm">{shipToDealer.orgName}</div>
+                  <div className="text-[10px] text-gray-500 mb-2">
+                    {shipToDealer.dealerId} · Ph: {shipToDealer.contact} · GSTIN: {shipToDealer.gstNo}
+                  </div>
+                  <div className="text-[10px] uppercase font-semibold text-gray-400 tracking-wide">
+                    Shipping Address (click any value to edit)
+                  </div>
+                  <EditableAddressBlock addr={shipToAddr} onChange={setShipToAddr} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Line Items */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100 flex items-center justify-between">
-            Line Items
-            {!selectedDealer && (
-              <span className="text-xs text-amber-500 font-normal">Select a dealer first to see prices</span>
-            )}
-          </h2>
+          <div className="mb-4 pb-2 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500">Price for Dealer Type</label>
+              <select
+                value={priceTier}
+                onChange={e => setPriceTier(e.target.value as PriceTier)}
+                className="border border-zinc-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+              >
+                {PRICE_TIERS.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-400 mb-3">
+            Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier.
+            Change the dropdown to re-price every product line.
+          </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+            <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="border-b-2 border-gray-200">
-                  {['#', 'Model', 'Variant', 'Colour', 'Qty', 'Rate', 'Taxable Amt', ''].map(h => (
+                  {['#', 'Model', 'Variant', 'Colour', 'Accessory', 'Qty', 'Rate', 'Line Total', ''].map(h => (
                     <th key={h} className="text-[10px] uppercase text-gray-400 font-semibold text-left px-2 pb-2 tracking-wide">
                       {h}
                     </th>
@@ -806,7 +944,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                     index={idx}
                     products={products}
                     variants={variants}
-                    dealerType={selectedDealer?.dealerType ?? 'dealer'}
+                    priceTier={priceTier}
                     onUpdate={updateLineItem}
                     onRemove={removeLineItem}
                   />
@@ -864,6 +1002,12 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
               <span className="text-gray-500">Total GST</span>
               <span className="font-medium">{formatINR(totalGST)}</span>
             </div>
+            {totalAccessory > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Accessories <span className="text-[10px]">(incl. GST)</span></span>
+                <span className="font-medium">{formatINR(totalAccessory)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Insurance <span className="text-[10px]">(@0.075%)</span></span>
               <span className="font-medium">{formatINR(insurance)}</span>
@@ -898,7 +1042,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            {editInvoiceId ? 'Preview & Confirm PI Update' : 'Preview &amp; Confirm Invoice'}
+            {editInvoiceId ? 'Preview & Confirm PI Update' : 'Preview & Confirm Invoice'}
           </button>
         </div>
       </div>

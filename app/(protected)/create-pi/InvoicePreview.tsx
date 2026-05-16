@@ -34,6 +34,8 @@ export interface PreviewDealer {
   shippingAddress: PreviewAddress;
 }
 
+export type AccessoryType = 'none' | 'black' | 'steel';
+
 export interface PreviewLineItem {
   id: string;
   productName: string;
@@ -49,6 +51,8 @@ export interface PreviewLineItem {
   cgstAmount: number;
   igstAmount: number;
   taxableAmount: number;
+  accessory?: AccessoryType;
+  accessoryCharge?: number;
   totalAmount: number;
 }
 
@@ -57,7 +61,10 @@ export interface InvoicePreviewProps {
   invoiceDate: string;
   dueDate: string;
   manufacturingUnit: PreviewManufacturingUnit | null;
+  /** Bill To dealer */
   dealer: PreviewDealer | null;
+  /** Ship To dealer (separate from Bill To). Falls back to `dealer` for legacy invoices. */
+  shipToDealer?: PreviewDealer | null;
   items: PreviewLineItem[];
   taxType: 'within_state' | 'other_state';
   subTotal: number;
@@ -66,12 +73,19 @@ export interface InvoicePreviewProps {
   totalCGST: number;
   totalIGST: number;
   totalGST: number;
+  totalAccessory?: number;
   insurance: number;
   insuranceEnabled?: boolean;
   total: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const ACCESSORY_LABEL: Record<AccessoryType, string> = {
+  none: '—',
+  black: 'Black Accessory',
+  steel: 'Steel Accessory',
+};
 
 function formatINR(n: number): string {
   return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -98,6 +112,7 @@ export default function InvoicePreview({
   dueDate,
   manufacturingUnit,
   dealer,
+  shipToDealer,
   items,
   taxType,
   subTotal,
@@ -106,6 +121,7 @@ export default function InvoicePreview({
   totalCGST,
   totalIGST,
   totalGST,
+  totalAccessory,
   insurance,
   insuranceEnabled = true,
   total,
@@ -113,6 +129,11 @@ export default function InvoicePreview({
   const isOtherState = taxType === 'other_state';
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const totalLineAmount = items.reduce((s, i) => s + i.totalAmount, 0);
+  const accessoryTotal = totalAccessory ?? items.reduce((s, i) => s + (i.accessoryCharge ?? 0), 0);
+  const hasAccessory = items.some(i => i.accessory && i.accessory !== 'none');
+
+  // Ship To is a separate dealer; legacy invoices fall back to the Bill To dealer.
+  const shipTo = shipToDealer ?? dealer;
 
   const muAddress = manufacturingUnit
     ? [manufacturingUnit.address, manufacturingUnit.city, manufacturingUnit.state, manufacturingUnit.pincode]
@@ -184,12 +205,12 @@ export default function InvoicePreview({
         </div>
         <div className="px-5 py-3">
           <div className="text-[9px] uppercase text-gray-400 font-semibold tracking-wider mb-1">Ship To (Dealer)</div>
-          <div className="font-bold text-gray-900 text-[11px]">{dealer?.orgName || '—'}</div>
-          {dealer && (
+          <div className="font-bold text-gray-900 text-[11px]">{shipTo?.orgName || '—'}</div>
+          {shipTo && (
             <div className="text-[10px] text-gray-600 mt-1 leading-relaxed">
-              {formatAddr(dealer.shippingAddress)}<br />
-              Ph: {dealer.contact} · {dealer.orgEmail}<br />
-              GSTIN: {dealer.gstNo}
+              {formatAddr(shipTo.shippingAddress)}<br />
+              Ph: {shipTo.contact} · {shipTo.orgEmail}<br />
+              GSTIN: {shipTo.gstNo}
             </div>
           )}
         </div>
@@ -200,8 +221,8 @@ export default function InvoicePreview({
         <thead>
           <tr className="border-b-2 border-gray-800 bg-gray-50">
             {(isOtherState
-              ? ['#', 'MODEL', 'VARIANT', 'COLOUR', 'HSN', 'QTY', 'RATE', 'IGST%', 'IGST', 'AMOUNT']
-              : ['#', 'MODEL', 'VARIANT', 'COLOUR', 'HSN', 'QTY', 'RATE', 'SGST%', 'SGST', 'CGST%', 'CGST', 'AMOUNT']
+              ? ['#', 'MODEL', 'VARIANT', 'COLOUR', 'ACCESSORY', 'HSN', 'QTY', 'RATE', 'IGST%', 'IGST', 'AMOUNT']
+              : ['#', 'MODEL', 'VARIANT', 'COLOUR', 'ACCESSORY', 'HSN', 'QTY', 'RATE', 'SGST%', 'SGST', 'CGST%', 'CGST', 'AMOUNT']
             ).map(h => (
               <th
                 key={h}
@@ -218,17 +239,32 @@ export default function InvoicePreview({
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={isOtherState ? 10 : 12} className="px-3 py-4 text-center text-gray-400 italic">
+              <td colSpan={isOtherState ? 11 : 13} className="px-3 py-4 text-center text-gray-400 italic">
                 No items added yet
               </td>
             </tr>
           ) : (
-            items.map((item, idx) => (
+            items.map((item, idx) => {
+              const accessory = item.accessory ?? 'none';
+              const accessoryCharge = item.accessoryCharge ?? 0;
+              return (
               <tr key={item.id} className="border-b border-gray-100">
                 <td className="px-2 py-1.5">{idx + 1}</td>
                 <td className="px-2 py-1.5 font-semibold uppercase">{item.productName || '—'}</td>
                 <td className="px-2 py-1.5 uppercase">{item.variantName || '—'}</td>
                 <td className="px-2 py-1.5 uppercase">{item.colour || '—'}</td>
+                <td className="px-2 py-1.5">
+                  {accessory === 'none' ? (
+                    <span className="text-gray-400">—</span>
+                  ) : (
+                    <span className="font-medium">
+                      {ACCESSORY_LABEL[accessory]}
+                      <span className="block text-[8px] text-gray-500">
+                        + {formatINR(accessoryCharge)} (incl. GST)
+                      </span>
+                    </span>
+                  )}
+                </td>
                 <td className="px-2 py-1.5">{item.HSN || '—'}</td>
                 <td className="px-2 py-1.5 text-right">{item.qty}</td>
                 <td className="px-2 py-1.5 text-right">{item.rate > 0 ? formatINR(item.rate) : '—'}</td>
@@ -249,13 +285,14 @@ export default function InvoicePreview({
                   {item.totalAmount > 0 ? formatINR(item.totalAmount) : '—'}
                 </td>
               </tr>
-            ))
+              );
+            })
           )}
 
           {items.length > 0 && (
             <tr className="border-t-2 border-gray-800 font-semibold bg-gray-50">
               <td className="px-2 py-2 text-[10px]">Totals</td>
-              <td colSpan={4} />
+              <td colSpan={5} />
               <td className="px-2 py-2 text-right text-[10px]">{totalQty}</td>
               <td className="px-2 py-2 text-right text-[10px]">{formatINR(subTotal)}</td>
               {isOtherState ? (
@@ -277,6 +314,14 @@ export default function InvoicePreview({
         </tbody>
       </table>
       </div>
+
+      {hasAccessory && (
+        <div className="px-5 py-2 border-t border-gray-200 text-[9px] text-gray-500">
+          <strong className="text-gray-700">Note:</strong> Accessory charges (Black Accessory ₹1,000 ·
+          Steel Accessory ₹1,500) are GST-inclusive and added to the respective line amount.
+        </div>
+      )}
+
       {/* ── Summary ── */}
       <div className="flex justify-end px-5 py-4 border-t border-gray-200">
         <div className="w-60 space-y-1.5">
@@ -311,6 +356,12 @@ export default function InvoicePreview({
             <span className="text-gray-500 uppercase tracking-wide">Total GST</span>
             <span className="font-medium">{formatINR(totalGST)}</span>
           </div>
+          {accessoryTotal > 0 && (
+            <div className="flex justify-between text-[10px]">
+              <span className="text-gray-500 uppercase tracking-wide">Accessories (incl. GST)</span>
+              <span className="font-medium">{formatINR(accessoryTotal)}</span>
+            </div>
+          )}
           {insuranceEnabled && (
             <div className="flex justify-between text-[10px]">
               <span className="text-gray-500 uppercase tracking-wide">Insurance (@0.075%)</span>

@@ -40,6 +40,8 @@ export interface SavedManufacturingUnit {
   accountNumber: string;
 }
 
+export type AccessoryType = 'none' | 'black' | 'steel';
+
 export interface SavedLineItem {
   id: string;
   productId: number;
@@ -57,6 +59,8 @@ export interface SavedLineItem {
   cgstAmount: number;
   igstAmount: number;
   taxableAmount: number;
+  accessory: AccessoryType;
+  accessoryCharge: number;
   totalAmount: number;
 }
 
@@ -67,7 +71,10 @@ export interface SavedInvoice {
   dueDate: string;
   seqNumber: string;
   manufacturingUnit: SavedManufacturingUnit;
+  /** Bill To dealer */
   dealer: SavedDealer;
+  /** Ship To dealer (separate from Bill To). Optional for legacy invoices. */
+  shipToDealer?: SavedDealer;
   lineItems: SavedLineItem[];
   taxType: 'within_state' | 'other_state';
   subTotal: number;
@@ -76,6 +83,7 @@ export interface SavedInvoice {
   totalCGST: number;
   totalIGST: number;
   totalGST: number;
+  totalAccessory: number;
   insurance: number;
   total: number;
   insuranceEnabled?: boolean;
@@ -97,6 +105,7 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     seqNumber: { type: String, required: true },
     manufacturingUnit: { type: Schema.Types.Mixed, required: true },
     dealer: { type: Schema.Types.Mixed, required: true },
+    shipToDealer: { type: Schema.Types.Mixed },
     lineItems: [{ type: Schema.Types.Mixed }],
     taxType: { type: String, enum: ['within_state', 'other_state'], required: true },
     subTotal: { type: Number, required: true },
@@ -105,6 +114,7 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     totalCGST: { type: Number, default: 0 },
     totalIGST: { type: Number, default: 0 },
     totalGST: { type: Number, required: true },
+    totalAccessory: { type: Number, default: 0 },
     insurance: { type: Number, default: 0 },
     total: { type: Number, required: true },
     insuranceEnabled: { type: Boolean, default: true },
