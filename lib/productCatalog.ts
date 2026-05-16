@@ -19,6 +19,11 @@ interface PricingVariant {
 }
 interface PricingProduct {
   name: string;
+  /** Optional per-product GST override (e.g. batteries at 18%). Falls back to the CSV / defaults. */
+  cgst?: number;
+  sgst?: number;
+  /** Optional HSN override for non-vehicle products (chargers, batteries). */
+  hsn?: string;
   variants: PricingVariant[];
 }
 
@@ -61,15 +66,15 @@ export function loadPricedCatalog(): PricedCatalog {
       byName.get(norm(prod.name)) ??
       byName.get(norm(NAME_ALIASES[norm(prod.name)] ?? ''));
 
-    const cgst = csv?.cgst ?? DEFAULT_CGST;
-    const sgst = csv?.sgst ?? DEFAULT_SGST;
+    const cgst = prod.cgst ?? csv?.cgst ?? DEFAULT_CGST;
+    const sgst = prod.sgst ?? csv?.sgst ?? DEFAULT_SGST;
     const gstFactor = 1 + (cgst + sgst) / 100;
     const productId = csv?.id ?? fallbackProductId++;
 
     products.push({
       id: productId,
       productName: prod.name,
-      HSN: csv?.HSN || DEFAULT_HSN,
+      HSN: prod.hsn || csv?.HSN || DEFAULT_HSN,
       cgst,
       sgst,
       colours: csv?.colours?.length ? csv.colours : DEFAULT_COLOURS,

@@ -41,7 +41,6 @@ export interface PreviewLineItem {
   productName: string;
   variantName: string;
   HSN: string;
-  colour: string;
   qty: number;
   rate: number;
   /** Per-unit price including GST. Optional for legacy invoices. */
@@ -123,7 +122,6 @@ export default function InvoicePreview({
   totalCGST,
   totalIGST,
   totalGST,
-  totalAccessory,
   insurance,
   insuranceEnabled = true,
   total,
@@ -131,12 +129,11 @@ export default function InvoicePreview({
   const isOtherState = taxType === 'other_state';
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const totalLineAmount = items.reduce((s, i) => s + i.totalAmount, 0);
-  const accessoryTotal = totalAccessory ?? items.reduce((s, i) => s + (i.accessoryCharge ?? 0), 0);
   const hasAccessory = items.some(i => i.accessory && i.accessory !== 'none');
 
   // Column headers — the ACCESSORY column is dropped when no item has an accessory.
   const headers = [
-    '#', 'MODEL', 'VARIANT', 'COLOUR',
+    '#', 'MODEL', 'VARIANT',
     ...(hasAccessory ? ['ACCESSORY'] : []),
     'HSN', 'QTY', 'RATE', 'RATE (INCL GST)',
     ...(isOtherState ? ['IGST%', 'IGST'] : ['SGST%', 'SGST', 'CGST%', 'CGST']),
@@ -260,7 +257,6 @@ export default function InvoicePreview({
                 <td className="px-2 py-1.5">{idx + 1}</td>
                 <td className="px-2 py-1.5 font-semibold uppercase">{item.productName || '—'}</td>
                 <td className="px-2 py-1.5 uppercase">{item.variantName || '—'}</td>
-                <td className="px-2 py-1.5 uppercase">{item.colour || '—'}</td>
                 {hasAccessory && (
                   <td className="px-2 py-1.5">
                     {accessory === 'none' ? (
@@ -269,7 +265,7 @@ export default function InvoicePreview({
                       <span className="font-medium">
                         {ACCESSORY_LABEL[accessory]}
                         <span className="block text-[8px] text-gray-500">
-                          + {formatINR(accessoryCharge)} (incl. GST)
+                          + {formatINR(accessoryCharge)} (pre-tax)
                         </span>
                       </span>
                     )}
@@ -303,7 +299,7 @@ export default function InvoicePreview({
           {items.length > 0 && (
             <tr className="border-t-2 border-gray-800 font-semibold bg-gray-50">
               <td className="px-2 py-2 text-[10px]">Totals</td>
-              <td colSpan={hasAccessory ? 5 : 4} />
+              <td colSpan={hasAccessory ? 4 : 3} />
               <td className="px-2 py-2 text-right text-[10px]">{totalQty}</td>
               <td className="px-2 py-2 text-right text-[10px]">{formatINR(subTotal)}</td>
               <td />
@@ -329,8 +325,9 @@ export default function InvoicePreview({
 
       {hasAccessory && (
         <div className="px-5 py-2 border-t border-gray-200 text-[9px] text-gray-500">
-          <strong className="text-gray-700">Note:</strong> Accessory charges (Black Accessory ₹1,000 ·
-          Steel Accessory ₹1,500) are GST-inclusive and added to the respective line amount.
+          <strong className="text-gray-700">Note:</strong> Accessory prices (Black Accessory ₹1,000/unit ·
+          Steel Accessory ₹1,500/unit) include 5% GST. The pre-tax value is shown in the sub total and the
+          5% GST is included in the total GST.
         </div>
       )}
 
@@ -368,12 +365,6 @@ export default function InvoicePreview({
             <span className="text-gray-500 uppercase tracking-wide">Total GST</span>
             <span className="font-medium">{formatINR(totalGST)}</span>
           </div>
-          {accessoryTotal > 0 && (
-            <div className="flex justify-between text-[10px]">
-              <span className="text-gray-500 uppercase tracking-wide">Accessories (incl. GST)</span>
-              <span className="font-medium">{formatINR(accessoryTotal)}</span>
-            </div>
-          )}
           {insuranceEnabled && (
             <div className="flex justify-between text-[10px]">
               <span className="text-gray-500 uppercase tracking-wide">Insurance (@0.075%)</span>

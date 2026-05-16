@@ -240,6 +240,27 @@
         { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 54500, "districtdealer": 53850, "distributor": 52500, "divisionaldistributor": 53150 } },
         { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 42000, "districtdealer": 41350, "distributor": 40000, "divisionaldistributor": 40650 } }
       ]
+    },
+    {
+      "name": "CHARGER",
+      "cgst": 2.5,
+      "sgst": 2.5,
+      "variants": [
+        { "key": "48v-3ah", "label": "48V 3AH", "prices": { "areadealer": 682.5, "districtdealer": 682.5, "distributor": 682.5, "divisionaldistributor": 682.5 } },
+        { "key": "60v-3ah", "label": "60V 3AH", "prices": { "areadealer": 714, "districtdealer": 714, "distributor": 714, "divisionaldistributor": 714 } },
+        { "key": "72v-3ah", "label": "72V 3AH", "prices": { "areadealer": 924, "districtdealer": 924, "distributor": 924, "divisionaldistributor": 924 } },
+        { "key": "67v-6a", "label": "67V 6A", "prices": { "areadealer": 1350, "districtdealer": 1350, "distributor": 1350, "divisionaldistributor": 1350 } },
+        { "key": "60v-4a", "label": "60V 4A", "prices": { "areadealer": 1260, "districtdealer": 1260, "distributor": 1260, "divisionaldistributor": 1260 } }
+      ]
+    },
+    {
+      "name": "BATTERY",
+      "cgst": 9,
+      "sgst": 9,
+      "variants": [
+        { "key": "12v-33ah", "label": "12V 33AH", "prices": { "areadealer": 2360, "districtdealer": 2360, "distributor": 2360, "divisionaldistributor": 2360 } },
+        { "key": "12v-43ah", "label": "12V 43AH", "prices": { "areadealer": 3894, "districtdealer": 3894, "distributor": 3894, "divisionaldistributor": 3894 } }
+      ]
     }
   ]
 }

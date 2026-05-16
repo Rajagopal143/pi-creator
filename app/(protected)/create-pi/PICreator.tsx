@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { Dealer, Product, ProductVariant, ManufacturingUnit } from '@/lib/csvData';
+import type { InvoiceCounterDTO } from '@/lib/invoiceCounterModel';
 import InvoicePreview from './InvoicePreview';
 import type { InvoicePreviewProps } from './InvoicePreview';
 
@@ -15,7 +16,6 @@ interface LineItemState {
   id: string;
   productId: number | null;
   variantId: number | null;
-  colour: string;
   qty: number;
   accessory: AccessoryType;
 }
@@ -52,7 +52,13 @@ const INSURANCE_RATE = 0.075 / 100;
 /** GST folded into the insurance charge — included in the amount, not shown separately. */
 const INSURANCE_GST_RATE = 0.18;
 
-/** GST-inclusive flat charge added to a line total when an accessory is selected. */
+/** Accessory prices are quoted GST-inclusive at this rate (%). */
+const ACCESSORY_GST_RATE = 5;
+
+/** The due date is auto-set this many days after the invoice date. */
+const DUE_DATE_OFFSET_DAYS = 15;
+
+/** GST-inclusive per-unit accessory price (the quoted figure, 5% GST already baked in). */
 const ACCESSORY_CHARGE: Record<AccessoryType, number> = {
   none: 0,
   black: 1000,
@@ -93,8 +99,9 @@ function todayISO(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-function futureDateISO(days: number): string {
-  const d = new Date();
+/** Returns the ISO date `days` after the given ISO date. */
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso);
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
@@ -227,6 +234,93 @@ function DealerSearch({
   );
 }
 
+// ─── ProductSelect (searchable model dropdown) ──────────────────────────────────
+
+function ProductSelect({
+  products, value, onChange,
+}: {
+  products: Product[];
+  value: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  const selected = products.find(p => p.id === value) ?? null;
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? products.filter(p => p.productName.toLowerCase().includes(q)) : products;
+  }, [products, query]);
+
+  // The dropdown is fixed-positioned so the table's horizontal scroll never clips it.
+  const place = useCallback(() => {
+    const r = inputRef.current?.getBoundingClientRect();
+    if (r) setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, place]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={open ? query : (selected?.productName ?? '')}
+        placeholder="— Select Model —"
+        onFocus={() => { setQuery(''); place(); setOpen(true); }}
+        onChange={e => { setQuery(e.target.value); place(); setOpen(true); }}
+        className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-600"
+      />
+      {open && rect && (
+        <ul
+          style={{ position: 'fixed', top: rect.top, left: rect.left, width: rect.width }}
+          className="z-50 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-56 overflow-y-auto"
+        >
+          {selected && (
+            <li
+              onMouseDown={() => { onChange(null); setOpen(false); }}
+              className="px-3 py-2 hover:bg-red-50 cursor-pointer text-xs text-gray-400 border-b border-gray-100"
+            >
+              — Clear selection —
+            </li>
+          )}
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-gray-400 italic">No models found</li>
+          ) : (
+            filtered.map(p => (
+              <li
+                key={p.id}
+                onMouseDown={() => { onChange(p.id); setOpen(false); }}
+                className={`px-3 py-2 hover:bg-red-50 cursor-pointer text-sm ${
+                  p.id === value ? 'bg-red-50 font-medium text-gray-900' : 'text-gray-700'
+                }`}
+              >
+                {p.productName}
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ─── LineItemRow ──────────────────────────────────────────────────────────────
 
 function LineItemRow({
@@ -245,23 +339,16 @@ function LineItemRow({
     () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier) > 0),
     [variants, item.productId, priceTier],
   );
-  const selectedProduct = useMemo(
-    () => products.find(p => p.id === item.productId),
-    [products, item.productId],
-  );
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50">
       <td className="py-2 px-2 text-center text-gray-500 text-sm w-8">{index + 1}</td>
-      <td className="py-2 px-2">
-        <select
-          value={item.productId ?? ''}
-          onChange={e => onUpdate(item.id, { productId: e.target.value ? Number(e.target.value) : null })}
-          className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-600"
-        >
-          <option value="">— Select Model —</option>
-          {products.map(p => <option key={p.id} value={p.id}>{p.productName}</option>)}
-        </select>
+      <td className="py-2 px-2 min-w-[180px]">
+        <ProductSelect
+          products={products}
+          value={item.productId}
+          onChange={id => onUpdate(item.id, { productId: id })}
+        />
       </td>
       <td className="py-2 px-2">
         <select
@@ -278,19 +365,6 @@ function LineItemRow({
           ))}
         </select>
       </td>
-      <td className="py-2 px-2">
-        <select
-          value={item.colour}
-          onChange={e => onUpdate(item.id, { colour: e.target.value })}
-          disabled={!item.productId}
-          className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-600 disabled:bg-gray-50 disabled:text-gray-400"
-        >
-          <option value="">— Select Colour —</option>
-          {(selectedProduct?.colours ?? []).map(c => (
-            <option key={c.colourName} value={c.colourName}>{c.colourName}</option>
-          ))}
-        </select>
-      </td>
       <td className="py-2 px-2 w-40">
         <div className="flex flex-col gap-1">
           <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
@@ -300,7 +374,7 @@ function LineItemRow({
               onChange={e => onUpdate(item.id, { accessory: e.target.checked ? 'black' : 'none' })}
               className="h-3.5 w-3.5 accent-gray-800"
             />
-            Black Accessory <span className="text-gray-400">+₹1,000</span>
+            Black Accessory <span className="text-gray-400">+₹1,000/unit</span>
           </label>
           <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
             <input
@@ -309,7 +383,7 @@ function LineItemRow({
               onChange={e => onUpdate(item.id, { accessory: e.target.checked ? 'steel' : 'none' })}
               className="h-3.5 w-3.5 accent-gray-800"
             />
-            Steel Accessory <span className="text-gray-400">+₹1,500</span>
+            Steel Accessory <span className="text-gray-400">+₹1,500/unit</span>
           </label>
         </div>
       </td>
@@ -319,7 +393,7 @@ function LineItemRow({
           min={1}
           value={item.qty}
           onChange={e => onUpdate(item.id, { qty: Math.max(1, Number(e.target.value) || 1) })}
-          className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-red-600"
+          className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
         />
       </td>
       <td className="py-2 px-2 text-right text-sm text-gray-700 w-28 whitespace-nowrap">
@@ -469,11 +543,14 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   );
   const [taxType, setTaxType] = useState<'within_state' | 'other_state'>('within_state');
   const [lineItems, setLineItems] = useState<LineItemState[]>([
-    { id: 'item-1', productId: null, variantId: null, colour: '', qty: 1, accessory: 'none' },
+    { id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' },
   ]);
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
-  const [dueDate, setDueDate] = useState(futureDateISO(7));
-  const [seqNumber, setSeqNumber] = useState('00001');
+  const [dueDate, setDueDate] = useState(addDaysISO(todayISO(), DUE_DATE_OFFSET_DAYS));
+  const [seqNumber, setSeqNumber] = useState('');
+  const [counters, setCounters] = useState<InvoiceCounterDTO[]>([]);
+  // The invoice number assigned by the server on save, or loaded when editing.
+  const [assignedNumber, setAssignedNumber] = useState<string | null>(null);
   const [discount, setDiscount] = useState(0);
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
@@ -483,21 +560,19 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  const fetchNextSequence = useCallback(async () => {
+  const fetchCounters = useCallback(async () => {
     try {
-      const res = await fetch('/api/invoices?nextSequence=true');
-      const json = await res.json() as { success: boolean; data?: { nextSequence?: string } };
-      if (json.success && json.data?.nextSequence) {
-        setSeqNumber(json.data.nextSequence);
-      }
+      const res = await fetch('/api/invoice-counters');
+      const json = await res.json() as { success: boolean; data?: InvoiceCounterDTO[] };
+      if (json.success && json.data) setCounters(json.data);
     } catch {
-      // fallback: keep default sequence when API is unavailable
+      // fallback: the invoice-number preview stays generic when the API is down
     }
   }, []);
 
   useEffect(() => {
-    void fetchNextSequence();
-  }, [fetchNextSequence]);
+    void fetchCounters();
+  }, [fetchCounters]);
 
   useEffect(() => {
     if (!editInvoiceId) return;
@@ -531,15 +606,18 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                 id: item.id,
                 productId: item.productId,
                 variantId: item.variantId,
-                colour: item.colour,
                 qty: item.qty,
                 accessory: (item.accessory as AccessoryType) || 'none',
               }))
-            : [{ id: 'item-1', productId: null, variantId: null, colour: '', qty: 1, accessory: 'none' }],
+            : [{ id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' }],
         );
-        setInvoiceDate((invoice.invoiceDate as string) || todayISO());
-        setDueDate((invoice.dueDate as string) || futureDateISO(7));
-        setSeqNumber((invoice.seqNumber as string) || '00001');
+        const loadedInvoiceDate = (invoice.invoiceDate as string) || todayISO();
+        setInvoiceDate(loadedInvoiceDate);
+        setDueDate(
+          (invoice.dueDate as string) || addDaysISO(loadedInvoiceDate, DUE_DATE_OFFSET_DAYS),
+        );
+        setSeqNumber((invoice.seqNumber as string) || '');
+        setAssignedNumber((invoice.invoiceNumber as string) || null);
         setDiscount(Number(invoice.discount || 0));
         setInsuranceEnabled(invoice.insuranceEnabled !== false);
       } catch (err: unknown) {
@@ -557,7 +635,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       const product = products.find(p => p.id === item.productId);
       const variant = variants.find(v => v.id === item.variantId);
       const rate = variant ? getVariantPrice(variant, priceTier) : 0;
-      const taxableAmount = rate * item.qty;
+      const productTaxable = rate * item.qty;
       const sgstPct = product?.sgst ?? 0;
       const cgstPct = product?.cgst ?? 0;
       const igstPct = sgstPct + cgstPct;
@@ -565,12 +643,27 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       // Per-unit price including GST (same whether SGST+CGST or IGST is applied).
       const rateWithGst = rate + (rate * igstPct) / 100;
 
-      const sgstAmount = taxType === 'within_state' ? (taxableAmount * sgstPct) / 100 : 0;
-      const cgstAmount = taxType === 'within_state' ? (taxableAmount * cgstPct) / 100 : 0;
-      const igstAmount = taxType === 'other_state' ? (taxableAmount * igstPct) / 100 : 0;
+      // Accessory price already includes 5% GST — split it into a pre-tax base
+      // (shown in the sub total) and the GST component (added to total GST).
+      const accessoryInclusive = (ACCESSORY_CHARGE[item.accessory] ?? 0) * item.qty;
+      const accessoryCharge = accessoryInclusive / (1 + ACCESSORY_GST_RATE / 100);
+      const accessoryGst = accessoryInclusive - accessoryCharge;
 
-      // Accessory charge is GST-inclusive — added flat to the line total.
-      const accessoryCharge = ACCESSORY_CHARGE[item.accessory] ?? 0;
+      // Sub total carries the product value plus the pre-tax accessory base.
+      const taxableAmount = productTaxable + accessoryCharge;
+
+      // Product GST applies to the product value only; the accessory's own 5%
+      // GST is split into SGST/CGST (within state) or IGST (other state) so it
+      // rolls into the total GST.
+      const sgstAmount = taxType === 'within_state'
+        ? (productTaxable * sgstPct) / 100 + accessoryGst / 2
+        : 0;
+      const cgstAmount = taxType === 'within_state'
+        ? (productTaxable * cgstPct) / 100 + accessoryGst / 2
+        : 0;
+      const igstAmount = taxType === 'other_state'
+        ? (productTaxable * igstPct) / 100 + accessoryGst
+        : 0;
 
       return {
         ...item,
@@ -587,7 +680,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         igstAmount,
         taxableAmount,
         accessoryCharge,
-        totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount + accessoryCharge,
+        totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount,
       };
     });
   }, [lineItems, products, variants, priceTier, taxType]);
@@ -599,7 +692,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const totalAccessory = useMemo(() => computedItems.reduce((s, i) => s + i.accessoryCharge, 0), [computedItems]);
   const totalGST   = totalSGST + totalCGST + totalIGST;
   const insurance  = insuranceEnabled ? subTotal * INSURANCE_RATE * (1 + INSURANCE_GST_RATE) : 0;
-  const total      = subTotal - discount + totalGST + insurance + totalAccessory;
+  const total      = subTotal - discount + totalGST + insurance;
 
   // Effective dealers carry the inline-edited addresses for this PI only.
   const effectiveBillTo = useMemo<Dealer | null>(() => {
@@ -613,13 +706,15 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   }, [shipToDealer, shipToAddr]);
 
   // ── Invoice number ───────────────────────────────────────────────────────────
+  // The number is assigned by the server on save; before that we show a preview
+  // built from the selected manufacturing unit's state counter.
   const invoiceNumber = useMemo(() => {
-    if (!billToDealer) return `PO-INV-?-?-${new Date(invoiceDate).getFullYear()}-${seqNumber}`;
-    const oemId     = billToDealer.OEMProfileID;
-    const dealerNum = billToDealer.dealerId.replace(/\D/g, '').replace(/^0+/, '') || '0';
-    const year      = new Date(invoiceDate).getFullYear();
-    return `PO-INV-${oemId}-${dealerNum}-${year}-${seqNumber}`;
-  }, [billToDealer, invoiceDate, seqNumber]);
+    if (assignedNumber) return assignedNumber;
+    const counter = selectedMU ? counters.find(c => c.state === selectedMU.state) : null;
+    if (counter) return `${counter.prefix}/${counter.series}/${counter.nextNumber}`;
+    if (selectedMU) return `${selectedMU.state}-PI/2627/—`;
+    return 'Select a manufacturing unit';
+  }, [assignedNumber, counters, selectedMU]);
 
   // ── Line item CRUD ───────────────────────────────────────────────────────────
   const updateLineItem = useCallback((id: string, updates: Partial<LineItemState>) => {
@@ -629,7 +724,6 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         const updated = { ...item, ...updates };
         if ('productId' in updates && updates.productId !== item.productId) {
           updated.variantId = null;
-          updated.colour = '';
         }
         return updated;
       }),
@@ -639,7 +733,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const addLineItem = useCallback(() => {
     setLineItems(prev => [
       ...prev,
-      { id: `item-${Date.now()}`, productId: null, variantId: null, colour: '', qty: 1, accessory: 'none' },
+      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 1, accessory: 'none' },
     ]);
   }, []);
 
@@ -724,10 +818,17 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await res.json() as { success: boolean; message?: string };
+      const json = await res.json() as {
+        success: boolean;
+        message?: string;
+        data?: { invoiceNumber?: string; seqNumber?: string };
+      };
       if (!json.success) throw new Error(json.message || 'Failed to save');
+      // Reflect the server-assigned number (it is authoritative over the preview).
+      if (json.data?.invoiceNumber) setAssignedNumber(json.data.invoiceNumber);
+      if (json.data?.seqNumber) setSeqNumber(json.data.seqNumber);
       setSaved(true);
-      await fetchNextSequence();
+      await fetchCounters();
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save invoice');
     } finally {
@@ -736,7 +837,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   }, [
     effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
     computedItems, taxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
-    totalGST, totalAccessory, insurance, insuranceEnabled, total, fetchNextSequence, editInvoiceId,
+    totalGST, totalAccessory, insurance, insuranceEnabled, total, fetchCounters, editInvoiceId,
   ]);
 
   // ── Preview props ────────────────────────────────────────────────────────────
@@ -788,14 +889,26 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                 readOnly
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
               />
-              <div className="mt-1 text-[10px] text-gray-400">Auto Sequence: {seqNumber}</div>
+              <div className="mt-1 text-[10px] text-gray-400">
+                {assignedNumber
+                  ? 'Assigned number'
+                  : selectedMU
+                    ? `Auto-generated on save · ${selectedMU.state} series`
+                    : 'Auto-generated on save from the manufacturing unit state'}
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Date</label>
               <input
                 type="date"
                 value={invoiceDate}
-                onChange={e => setInvoiceDate(e.target.value)}
+                onChange={e => {
+                  setInvoiceDate(e.target.value);
+                  // Due date auto-follows: 15 days after the invoice date.
+                  if (e.target.value) {
+                    setDueDate(addDaysISO(e.target.value, DUE_DATE_OFFSET_DAYS));
+                  }
+                }}
                 className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
               />
             </div>
@@ -807,6 +920,9 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
                 onChange={e => setDueDate(e.target.value)}
                 className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
               />
+              <div className="mt-1 text-[10px] text-gray-400">
+                Auto-set {DUE_DATE_OFFSET_DAYS} days after the invoice date
+              </div>
             </div>
           </div>
         </div>
@@ -958,7 +1074,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
             <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="border-b-2 border-gray-200">
-                  {['#', 'Model', 'Variant', 'Colour', 'Accessory', 'Qty', 'Rate (incl. GST)', 'Line Total', ''].map(h => (
+                  {['#', 'Model', 'Variant', 'Accessory', 'Qty', 'Rate (incl. GST)', 'Line Total', ''].map(h => (
                     <th key={h} className="text-[10px] uppercase text-gray-400 font-semibold text-left px-2 pb-2 tracking-wide">
                       {h}
                     </th>
@@ -1031,12 +1147,6 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
               <span className="text-gray-500">Total GST</span>
               <span className="font-medium">{formatINR(totalGST)}</span>
             </div>
-            {totalAccessory > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Accessories <span className="text-[10px]">(incl. GST)</span></span>
-                <span className="font-medium">{formatINR(totalAccessory)}</span>
-              </div>
-            )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Insurance <span className="text-[10px]">(@0.075%)</span></span>
               <span className="font-medium">{formatINR(insurance)}</span>

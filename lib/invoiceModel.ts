@@ -46,7 +46,8 @@ export interface SavedLineItem {
   id: string;
   productId: number;
   variantId: number;
-  colour: string;
+  /** Legacy field — colour is no longer captured in the PI creator. */
+  colour?: string;
   qty: number;
   productName: string;
   variantName: string;

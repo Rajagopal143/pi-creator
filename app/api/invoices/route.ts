@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Invoice } from '@/lib/invoiceModel';
+import {
+  InvoiceCounter,
+  ensureCountersSeeded,
+  formatInvoiceNumber,
+} from '@/lib/invoiceCounterModel';
+
+/**
+ * Atomically reserves the next invoice number for the given state's counter.
+ * `$inc` with `new: false` returns the counter as it was *before* the bump,
+ * so its `nextNumber` is exactly the number to use — concurrency-safe.
+ */
+async function reserveInvoiceNumber(state: string): Promise<{ invoiceNumber: string; seqNumber: string } | null> {
+  if (!state) return null;
+  let counter = await InvoiceCounter.findOneAndUpdate(
+    { state },
+    { $inc: { nextNumber: 1 } },
+    { new: false },
+  );
+  if (!counter) {
+    // Unknown state — create a counter on the fly, then reserve from it.
+    await InvoiceCounter.create({
+      state, stateName: state, prefix: `${state}-PI`, series: '2627', nextNumber: 1,
+    });
+    counter = await InvoiceCounter.findOneAndUpdate(
+      { state },
+      { $inc: { nextNumber: 1 } },
+      { new: false },
+    );
+  }
+  if (!counter) return null;
+  const used = counter.nextNumber;
+  return { invoiceNumber: formatInvoiceNumber(counter, used), seqNumber: String(used) };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +42,19 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString();
     const status = (body.status as string) || 'Approved';
     const statusDescription = (body.statusDescription as string) || 'Invoice created';
+
+    // The invoice number is assigned server-side from the per-state counter so
+    // it is sequential and collision-free, regardless of the client preview.
+    await ensureCountersSeeded();
+    const muState = String(
+      (body.manufacturingUnit as { state?: string } | undefined)?.state || '',
+    ).toUpperCase().trim();
+    const reserved = await reserveInvoiceNumber(muState);
+    if (reserved) {
+      body.invoiceNumber = reserved.invoiceNumber;
+      body.seqNumber = reserved.seqNumber;
+    }
+
     const invoice = await Invoice.create(body);
     if (!invoice.statusHistory || invoice.statusHistory.length === 0) {
       invoice.status = status;

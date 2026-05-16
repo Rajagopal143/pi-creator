@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, FilePlus2, List, LogOut } from 'lucide-react';
+import { Building2, FilePlus2, List, LogOut, Settings } from 'lucide-react';
 
 import {
   Sidebar,
@@ -80,6 +80,18 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/settings'}
+                    tooltip="Settings"
+                  >
+                    <Link href="/settings">
+                      <Settings />
+                      <span>Settings</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -109,7 +121,9 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
                     ? 'Add New Dealer'
                     : pathname.startsWith('/dealers')
                       ? 'Dealers'
-                      : 'Yakuza DMS'}
+                      : pathname === '/settings'
+                        ? 'Settings'
+                        : 'Yakuza DMS'}
             </span>
           </div>
         </header>
