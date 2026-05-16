@@ -8,9 +8,9 @@ import { PageTitleBar } from '@/components/app/PageTitleBar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { createDealerAction } from '@/lib/dealers/server-actions';
-import { initialCreateState, type ParentOption } from '@/lib/dealers/types';
-import type { ManufacturingUnit } from '@/lib/csvData';
+import { createDealerAction, updateDealerAction } from '@/lib/dealers/server-actions';
+import { initialCreateState, type DealerFormInitial, type ParentOption } from '@/lib/dealers/types';
+import type { ManufacturingUnit, Address } from '@/lib/csvData';
 import type { StateOption, DealerUserType } from '@/lib/dealers/referenceData';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +26,8 @@ interface Props {
   distributors: ParentOption[];
   parentDealers: ParentOption[];
   states: StateOption[];
+  /** When provided, the form runs in edit mode against this dealer. */
+  dealer?: DealerFormInitial;
 }
 
 export default function AddDealerForm({
@@ -33,18 +35,29 @@ export default function AddDealerForm({
   distributors,
   parentDealers,
   states,
+  dealer,
 }: Props) {
+  const isEdit = !!dealer;
   const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction, pending] = useActionState(createDealerAction, initialCreateState);
+  const [state, formAction, pending] = useActionState(
+    isEdit ? updateDealerAction : createDealerAction,
+    initialCreateState,
+  );
   const fe = state.fieldErrors;
 
-  const [userType, setUserType] = useState<DealerUserType>('distributor');
+  const [userType, setUserType] = useState<DealerUserType>(dealer?.userType ?? 'distributor');
   const [showPassword, setShowPassword] = useState(false);
-  const [accountType, setAccountType] = useState<'Current' | 'Savings'>('Current');
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [logoName, setLogoName] = useState('');
-  const [logoBase64, setLogoBase64] = useState('');
-  const [logoMime, setLogoMime] = useState('');
+  const [accountType, setAccountType] = useState<'Current' | 'Savings'>(
+    dealer?.bankDetails.accountType ?? 'Current',
+  );
+  const [logoPreview, setLogoPreview] = useState<string | null>(
+    dealer?.logoBase64
+      ? `data:${dealer.logoMimeType || 'image/png'};base64,${dealer.logoBase64}`
+      : null,
+  );
+  const [logoName, setLogoName] = useState(dealer?.logoBase64 ? 'Current logo' : '');
+  const [logoBase64, setLogoBase64] = useState(dealer?.logoBase64 ?? '');
+  const [logoMime, setLogoMime] = useState(dealer?.logoMimeType ?? '');
   const [logoError, setLogoError] = useState('');
 
   const onLogo = useCallback((files: FileList | null) => {
@@ -93,12 +106,23 @@ export default function AddDealerForm({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-4">
-      <PageTitleBar pageTitle="Add New Dealer" browserBack fallbackURL="/dealers" />
+      <PageTitleBar
+        pageTitle={isEdit ? `Edit Dealer — ${dealer.dealerId}` : 'Add New Dealer'}
+        browserBack
+        fallbackURL="/dealers"
+      />
 
       <form ref={formRef} action={formAction} className="space-y-6">
+        {isEdit && <input type="hidden" name="dealerId" value={dealer.id} />}
         <input type="hidden" name="logoBase64" value={logoBase64} />
         <input type="hidden" name="logoMimeType" value={logoMime} />
         <input type="hidden" name="accountType" value={accountType} />
+
+        {state.message ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {state.message}
+          </p>
+        ) : null}
 
         {/* User type */}
         <section className="space-y-2">
@@ -143,7 +167,7 @@ export default function AddDealerForm({
               <select
                 name="salutation"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                defaultValue="mr"
+                defaultValue={dealer?.salutation ?? 'mr'}
               >
                 <option value="mr">Mr.</option>
                 <option value="miss">Miss.</option>
@@ -154,6 +178,7 @@ export default function AddDealerForm({
                   name="firstName"
                   placeholder="First Name"
                   autoComplete="given-name"
+                  defaultValue={dealer?.firstName}
                   className={cn(fe.firstName && 'border-destructive')}
                 />
                 {fe.firstName ? <p className="mt-1 text-xs text-destructive">{fe.firstName}</p> : null}
@@ -163,6 +188,7 @@ export default function AddDealerForm({
                   name="lastName"
                   placeholder="Last Name"
                   autoComplete="family-name"
+                  defaultValue={dealer?.lastName}
                   className={cn(fe.lastName && 'border-destructive')}
                 />
                 {fe.lastName ? <p className="mt-1 text-xs text-destructive">{fe.lastName}</p> : null}
@@ -179,13 +205,19 @@ export default function AddDealerForm({
                 name="orgName"
                 placeholder="Enter Firm Name"
                 autoComplete="organization"
+                defaultValue={dealer?.orgName}
                 className={cn(fe.orgName && 'border-destructive')}
               />
               {fe.orgName ? <p className="mt-1 text-xs text-destructive">{fe.orgName}</p> : null}
             </Field>
 
             <Field label="GST No" required>
-              <Input name="gstNo" placeholder="Enter GST No" className={cn(fe.gstNo && 'border-destructive')} />
+              <Input
+                name="gstNo"
+                placeholder="Enter GST No"
+                defaultValue={dealer?.gstNo}
+                className={cn(fe.gstNo && 'border-destructive')}
+              />
               {fe.gstNo ? <p className="mt-1 text-xs text-destructive">{fe.gstNo}</p> : null}
             </Field>
 
@@ -195,6 +227,7 @@ export default function AddDealerForm({
                 type="email"
                 placeholder="Enter Email ID"
                 autoComplete="email"
+                defaultValue={dealer?.orgEmail}
                 className={cn(fe.orgEmail && 'border-destructive')}
               />
               {fe.orgEmail ? <p className="mt-1 text-xs text-destructive">{fe.orgEmail}</p> : null}
@@ -205,6 +238,7 @@ export default function AddDealerForm({
                 name="contact"
                 placeholder="Contact number"
                 autoComplete="tel"
+                defaultValue={dealer?.contact}
                 className={cn(fe.contact && 'border-destructive')}
               />
               {fe.contact ? <p className="mt-1 text-xs text-destructive">{fe.contact}</p> : null}
@@ -218,7 +252,7 @@ export default function AddDealerForm({
                     'h-9 w-full rounded-md border border-input bg-background px-2 text-sm',
                     fe.parentDistributorId && 'border-destructive',
                   )}
-                  defaultValue=""
+                  defaultValue={dealer?.parentDistributorId ?? ''}
                 >
                   <option value="" disabled>
                     Select Distributor
@@ -240,7 +274,7 @@ export default function AddDealerForm({
                 <select
                   name="parentDealerId"
                   className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  defaultValue=""
+                  defaultValue={dealer?.parentDealerId ?? ''}
                 >
                   <option value="">— None —</option>
                   {parentDealers.map(d => (
@@ -256,6 +290,7 @@ export default function AddDealerForm({
               <Input
                 name="regionId"
                 placeholder="Enter region"
+                defaultValue={dealer?.regionId}
                 className={cn(fe.regionId && 'border-destructive')}
               />
               {fe.regionId ? <p className="mt-1 text-xs text-destructive">{fe.regionId}</p> : null}
@@ -265,6 +300,7 @@ export default function AddDealerForm({
               <Input
                 name="zoneId"
                 placeholder="Enter zone"
+                defaultValue={dealer?.zoneId}
                 className={cn(fe.zoneId && 'border-destructive')}
               />
               {fe.zoneId ? <p className="mt-1 text-xs text-destructive">{fe.zoneId}</p> : null}
@@ -274,7 +310,7 @@ export default function AddDealerForm({
               <select
                 name="manufacturingUnitId"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                defaultValue=""
+                defaultValue={dealer?.manufacturingUnitId != null ? String(dealer.manufacturingUnitId) : ''}
               >
                 <option value="">— None —</option>
                 {manufacturingUnits.map(u => (
@@ -285,12 +321,12 @@ export default function AddDealerForm({
               </select>
             </Field>
 
-            <Field label="Password" required>
+            <Field label="Password" required={!isEdit}>
               <div className="relative">
                 <Input
                   name="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder={isEdit ? 'Leave blank to keep current' : '••••••••'}
                   autoComplete="new-password"
                   className={cn('pr-10', fe.password && 'border-destructive')}
                 />
@@ -304,6 +340,11 @@ export default function AddDealerForm({
                 </button>
               </div>
               {fe.password ? <p className="mt-1 text-xs text-destructive">{fe.password}</p> : null}
+              {isEdit && !fe.password ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Leave blank to keep the existing password.
+                </p>
+              ) : null}
             </Field>
           </div>
 
@@ -350,6 +391,7 @@ export default function AddDealerForm({
             prefix="billing"
             states={states}
             errors={fe}
+            address={dealer?.billingAddress}
           />
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -363,7 +405,14 @@ export default function AddDealerForm({
                 Copy Billing Address here
               </Button>
             </div>
-            <AddressBlock title="" prefix="shipping" states={states} errors={fe} hideTitle />
+            <AddressBlock
+              title=""
+              prefix="shipping"
+              states={states}
+              errors={fe}
+              address={dealer?.shippingAddress}
+              hideTitle
+            />
           </div>
         </div>
 
@@ -398,29 +447,49 @@ export default function AddDealerForm({
             </div>
           </div>
           <Field label="Beneficiary Name" required>
-            <Input name="beneficiaryName" className={cn(fe['bank.beneficiaryName'] && 'border-destructive')} />
+            <Input
+              name="beneficiaryName"
+              defaultValue={dealer?.bankDetails.beneficiaryName}
+              className={cn(fe['bank.beneficiaryName'] && 'border-destructive')}
+            />
             {fe['bank.beneficiaryName'] ? (
               <p className="mt-1 text-xs text-destructive">{fe['bank.beneficiaryName']}</p>
             ) : null}
           </Field>
           <Field label="Bank Name" required>
-            <Input name="bankName" className={cn(fe['bank.bankName'] && 'border-destructive')} />
+            <Input
+              name="bankName"
+              defaultValue={dealer?.bankDetails.bankName}
+              className={cn(fe['bank.bankName'] && 'border-destructive')}
+            />
             {fe['bank.bankName'] ? <p className="mt-1 text-xs text-destructive">{fe['bank.bankName']}</p> : null}
           </Field>
           <Field label="Account Number" required>
-            <Input name="accountNumber" className={cn(fe['bank.accountNumber'] && 'border-destructive')} />
+            <Input
+              name="accountNumber"
+              defaultValue={dealer?.bankDetails.accountNumber}
+              className={cn(fe['bank.accountNumber'] && 'border-destructive')}
+            />
             {fe['bank.accountNumber'] ? (
               <p className="mt-1 text-xs text-destructive">{fe['bank.accountNumber']}</p>
             ) : null}
           </Field>
           <Field label="Re-enter Account Number" required>
-            <Input name="confirmAccount" className={cn(fe['bank.confirmAccount'] && 'border-destructive')} />
+            <Input
+              name="confirmAccount"
+              defaultValue={dealer?.bankDetails.accountNumber}
+              className={cn(fe['bank.confirmAccount'] && 'border-destructive')}
+            />
             {fe['bank.confirmAccount'] ? (
               <p className="mt-1 text-xs text-destructive">{fe['bank.confirmAccount']}</p>
             ) : null}
           </Field>
           <Field label="IFSC" required>
-            <Input name="IFSC" className={cn(fe['bank.IFSC'] && 'border-destructive')} />
+            <Input
+              name="IFSC"
+              defaultValue={dealer?.bankDetails.IFSC}
+              className={cn(fe['bank.IFSC'] && 'border-destructive')}
+            />
             {fe['bank.IFSC'] ? <p className="mt-1 text-xs text-destructive">{fe['bank.IFSC']}</p> : null}
           </Field>
         </div>
@@ -430,7 +499,7 @@ export default function AddDealerForm({
             <Link href="/dealers">Cancel</Link>
           </Button>
           <Button type="submit" disabled={pending} className="min-w-[160px]">
-            {pending ? 'Saving…' : SUBMIT_LABELS[userType]}
+            {pending ? 'Saving…' : isEdit ? 'Update Dealer' : SUBMIT_LABELS[userType]}
           </Button>
         </div>
       </form>
@@ -462,12 +531,14 @@ function AddressBlock({
   prefix,
   states,
   errors,
+  address,
   hideTitle,
 }: {
   title: string;
   prefix: 'billing' | 'shipping';
   states: StateOption[];
   errors: Record<string, string>;
+  address?: Address;
   hideTitle?: boolean;
 }) {
   const p = (k: string) => errors[`${prefix}.${k}`];
@@ -478,7 +549,7 @@ function AddressBlock({
         <select
           name={`${prefix}Country`}
           className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-          defaultValue="India"
+          defaultValue={address?.country || 'India'}
         >
           <option value="India">India</option>
         </select>
@@ -487,7 +558,7 @@ function AddressBlock({
         <select
           name={`${prefix}State`}
           className={cn('h-9 w-full rounded-md border border-input bg-background px-2 text-sm', p('state') && 'border-destructive')}
-          defaultValue=""
+          defaultValue={address?.state || ''}
         >
           <option value="" disabled>
             Select Dealer State
@@ -505,6 +576,7 @@ function AddressBlock({
           name={`${prefix}Address`}
           rows={3}
           placeholder="Enter Address Here"
+          defaultValue={address?.address || ''}
           className={cn(
             'w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
             p('address') && 'border-destructive',
@@ -513,11 +585,11 @@ function AddressBlock({
         {p('address') ? <p className="mt-1 text-xs text-destructive">{p('address')}</p> : null}
       </Field>
       <Field label="City" required>
-        <Input name={`${prefix}City`} className={cn(p('city') && 'border-destructive')} />
+        <Input name={`${prefix}City`} defaultValue={address?.city || ''} className={cn(p('city') && 'border-destructive')} />
         {p('city') ? <p className="mt-1 text-xs text-destructive">{p('city')}</p> : null}
       </Field>
       <Field label="Pincode" required>
-        <Input name={`${prefix}Pincode`} className={cn(p('pincode') && 'border-destructive')} />
+        <Input name={`${prefix}Pincode`} defaultValue={address?.pincode || ''} className={cn(p('pincode') && 'border-destructive')} />
         {p('pincode') ? <p className="mt-1 text-xs text-destructive">{p('pincode')}</p> : null}
       </Field>
     </div>

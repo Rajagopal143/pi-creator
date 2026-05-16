@@ -1,3 +1,7 @@
+import type { Address } from '@/lib/csvData';
+import type { DealerUserType } from './referenceData';
+import type { DealerBankDetails } from './dealerRecordModel';
+
 export interface DealerListRow {
   id: string;
   dealerNumericId: number;
@@ -12,6 +16,30 @@ export interface DealerListRow {
 export interface ParentOption {
   id: string;
   orgName: string;
+}
+
+/** Pre-filled values passed to the dealer form when editing an existing dealer. */
+export interface DealerFormInitial {
+  id: string;
+  dealerId: string;
+  userType: DealerUserType;
+  salutation: 'mr' | 'miss' | 'mrs';
+  firstName: string;
+  lastName: string;
+  orgName: string;
+  gstNo: string;
+  orgEmail: string;
+  contact: string;
+  regionId: string;
+  zoneId: string;
+  manufacturingUnitId: number | null;
+  parentDistributorId: string;
+  parentDealerId: string;
+  billingAddress: Address;
+  shippingAddress: Address;
+  bankDetails: DealerBankDetails;
+  logoBase64: string;
+  logoMimeType: string;
 }
 
 export type CreateDealerState = {

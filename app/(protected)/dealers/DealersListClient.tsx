@@ -122,6 +122,7 @@ export default function DealersListClient() {
                 <th className="px-4 py-3">User type</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Contact</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +152,11 @@ export default function DealersListClient() {
                     </td>
                     <td className="px-4 py-3 text-xs">{d.orgEmail}</td>
                     <td className="px-4 py-3 text-xs">{d.contact}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/dealers/${d.id}/edit`}>Edit</Link>
+                      </Button>
+                    </td>
                   </tr>
                 ))
               )}
