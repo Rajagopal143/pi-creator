@@ -44,11 +44,6 @@ async function nextDDealerId(): Promise<string> {
   return `D${String(next).padStart(6, '0')}`;
 }
 
-function isValidEmail(s: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-const PIN_RE = /^\d{6}$/;
 const ALLOWED_USER_TYPES: DealerUserType[] = [
   'distributor',
   'divisionaldistributor',
@@ -140,58 +135,6 @@ function readDealerForm(formData: FormData): DealerFormFields {
     logoBase64: String(formData.get('logoBase64') || '').trim(),
     logoMimeType: String(formData.get('logoMimeType') || '').trim(),
   };
-}
-
-/** Shared field validation. In edit mode the password is optional. */
-function validateDealerForm(f: DealerFormFields, isEdit: boolean): Record<string, string> {
-  const fe: Record<string, string> = {};
-
-  if (!f.firstName) fe.firstName = 'First name is required';
-  if (!f.lastName) fe.lastName = 'Last name is required';
-  if (!f.orgName) fe.orgName = 'Please fill the Dealer name';
-  if (!f.gstNo) fe.gstNo = 'GST number is required';
-  else if (f.gstNo.replace(/\s/g, '').length !== 15) fe.gstNo = 'GSTIN must be 15 characters';
-  if (!f.orgEmail) fe.orgEmail = 'Organization email is required';
-  else if (!isValidEmail(f.orgEmail)) fe.orgEmail = 'Enter a valid email address';
-  if (!f.contact) fe.contact = 'Contact number is required';
-  if (!f.regionId) fe.regionId = 'Region is required';
-  if (!f.zoneId) fe.zoneId = 'Zone is required';
-
-  // Password: required on create, optional on edit (but still min 6 if provided).
-  if (!isEdit) {
-    if (!f.password || f.password.length < 6) fe.password = 'Password is required (min 6 characters)';
-  } else if (f.password && f.password.length < 6) {
-    fe.password = 'Password must be at least 6 characters';
-  }
-
-  if (f.userType === 'districtdealer' && !f.parentDistributorId) {
-    fe.parentDistributorId = 'Select a distributor';
-  }
-
-  if (!f.billing.state) fe['billing.state'] = 'State is required';
-  if (!f.billing.address) fe['billing.address'] = 'Address is required';
-  if (!f.billing.city) fe['billing.city'] = 'City is required';
-  if (!f.billing.pincode) fe['billing.pincode'] = 'Pincode is required';
-  else if (!PIN_RE.test(f.billing.pincode)) fe['billing.pincode'] = 'Pincode must be 6 digits';
-
-  if (!f.shipping.state) fe['shipping.state'] = 'State is required';
-  if (!f.shipping.address) fe['shipping.address'] = 'Address is required';
-  if (!f.shipping.city) fe['shipping.city'] = 'City is required';
-  if (!f.shipping.pincode) fe['shipping.pincode'] = 'Pincode is required';
-  else if (!PIN_RE.test(f.shipping.pincode)) fe['shipping.pincode'] = 'Pincode must be 6 digits';
-
-  if (!f.beneficiaryName) fe['bank.beneficiaryName'] = 'Beneficiary name is required';
-  if (!f.bankName) fe['bank.bankName'] = 'Bank name is required';
-  if (!f.accountNumber) fe['bank.accountNumber'] = 'Account number is required';
-  if (!f.confirmAccount) fe['bank.confirmAccount'] = 'Re-enter the account number';
-  else if (f.confirmAccount !== f.accountNumber) fe['bank.confirmAccount'] = 'Account numbers do not match';
-  if (!f.IFSC) fe['bank.IFSC'] = 'IFSC code is required';
-
-  if (f.logoBase64 && f.logoBase64.length > 1_400_000) {
-    fe.logo = 'Logo file too large (max ~1MB)';
-  }
-
-  return fe;
 }
 
 function toObjectId(id: string): mongoose.Types.ObjectId | null {
@@ -349,22 +292,8 @@ export async function createDealerAction(
   formData: FormData,
 ): Promise<CreateDealerState> {
   const f = readDealerForm(formData);
-  const fieldErrors = validateDealerForm(f, false);
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: '', fieldErrors };
-  }
 
   await connectDB();
-
-  const dupEmail = await DealerRecord.findOne({ orgEmail: f.orgEmail }).lean();
-  if (dupEmail) {
-    return {
-      ok: false,
-      message: '',
-      fieldErrors: { orgEmail: 'A dealer with this email already exists' },
-    };
-  }
 
   const numericId = await nextDealerNumericId();
   const dealerId = await nextDDealerId();
@@ -399,28 +328,11 @@ export async function updateDealerAction(
     return { ok: false, message: 'Invalid dealer reference.', fieldErrors: {} };
   }
 
-  const fieldErrors = validateDealerForm(f, true);
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: '', fieldErrors };
-  }
-
   await connectDB();
 
   const existing = await DealerRecord.findById(f.dealerId).lean();
   if (!existing) {
     return { ok: false, message: 'Dealer not found.', fieldErrors: {} };
-  }
-
-  const dupEmail = await DealerRecord.findOne({
-    orgEmail: f.orgEmail,
-    _id: { $ne: existing._id },
-  }).lean();
-  if (dupEmail) {
-    return {
-      ok: false,
-      message: '',
-      fieldErrors: { orgEmail: 'Another dealer with this email already exists' },
-    };
   }
 
   const update: Record<string, unknown> = buildDealerWritePayload(f);

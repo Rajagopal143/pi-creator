@@ -63,14 +63,6 @@ export default function AddDealerForm({
   const onLogo = useCallback((files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setLogoError('Please choose an image file');
-      return;
-    }
-    if (file.size > 1_000_000) {
-      setLogoError('Maximum file size is 1MB');
-      return;
-    }
     setLogoError('');
     setLogoName(file.name);
     const reader = new FileReader();

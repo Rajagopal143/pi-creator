@@ -44,6 +44,8 @@ export interface PreviewLineItem {
   colour: string;
   qty: number;
   rate: number;
+  /** Per-unit price including GST. Optional for legacy invoices. */
+  rateWithGst?: number;
   sgstPct: number;
   cgstPct: number;
   igstPct: number;
@@ -131,6 +133,16 @@ export default function InvoicePreview({
   const totalLineAmount = items.reduce((s, i) => s + i.totalAmount, 0);
   const accessoryTotal = totalAccessory ?? items.reduce((s, i) => s + (i.accessoryCharge ?? 0), 0);
   const hasAccessory = items.some(i => i.accessory && i.accessory !== 'none');
+
+  // Column headers — the ACCESSORY column is dropped when no item has an accessory.
+  const headers = [
+    '#', 'MODEL', 'VARIANT', 'COLOUR',
+    ...(hasAccessory ? ['ACCESSORY'] : []),
+    'HSN', 'QTY', 'RATE', 'RATE (INCL GST)',
+    ...(isOtherState ? ['IGST%', 'IGST'] : ['SGST%', 'SGST', 'CGST%', 'CGST']),
+    'AMOUNT',
+  ];
+  const RIGHT_ALIGNED = ['QTY', 'RATE', 'RATE (INCL GST)', 'SGST%', 'SGST', 'CGST%', 'CGST', 'IGST%', 'IGST', 'AMOUNT'];
 
   // Ship To is a separate dealer; legacy invoices fall back to the Bill To dealer.
   const shipTo = shipToDealer ?? dealer;
@@ -220,16 +232,11 @@ export default function InvoicePreview({
       <table className="w-full border-collapse overflow-x-auto">
         <thead>
           <tr className="border-b-2 border-gray-800 bg-gray-50">
-            {(isOtherState
-              ? ['#', 'MODEL', 'VARIANT', 'COLOUR', 'ACCESSORY', 'HSN', 'QTY', 'RATE', 'IGST%', 'IGST', 'AMOUNT']
-              : ['#', 'MODEL', 'VARIANT', 'COLOUR', 'ACCESSORY', 'HSN', 'QTY', 'RATE', 'SGST%', 'SGST', 'CGST%', 'CGST', 'AMOUNT']
-            ).map(h => (
+            {headers.map(h => (
               <th
                 key={h}
                 className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-gray-700"
-                style={['QTY', 'RATE', 'SGST%', 'SGST', 'CGST%', 'CGST', 'IGST%', 'IGST', 'AMOUNT'].includes(h)
-                  ? { textAlign: 'right' }
-                  : { textAlign: 'left' }}
+                style={RIGHT_ALIGNED.includes(h) ? { textAlign: 'right' } : { textAlign: 'left' }}
               >
                 {h}
               </th>
@@ -239,7 +246,7 @@ export default function InvoicePreview({
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={isOtherState ? 11 : 13} className="px-3 py-4 text-center text-gray-400 italic">
+              <td colSpan={headers.length} className="px-3 py-4 text-center text-gray-400 italic">
                 No items added yet
               </td>
             </tr>
@@ -247,27 +254,31 @@ export default function InvoicePreview({
             items.map((item, idx) => {
               const accessory = item.accessory ?? 'none';
               const accessoryCharge = item.accessoryCharge ?? 0;
+              const rateWithGst = item.rateWithGst ?? item.rate + (item.rate * item.igstPct) / 100;
               return (
               <tr key={item.id} className="border-b border-gray-100">
                 <td className="px-2 py-1.5">{idx + 1}</td>
                 <td className="px-2 py-1.5 font-semibold uppercase">{item.productName || '—'}</td>
                 <td className="px-2 py-1.5 uppercase">{item.variantName || '—'}</td>
                 <td className="px-2 py-1.5 uppercase">{item.colour || '—'}</td>
-                <td className="px-2 py-1.5">
-                  {accessory === 'none' ? (
-                    <span className="text-gray-400">—</span>
-                  ) : (
-                    <span className="font-medium">
-                      {ACCESSORY_LABEL[accessory]}
-                      <span className="block text-[8px] text-gray-500">
-                        + {formatINR(accessoryCharge)} (incl. GST)
+                {hasAccessory && (
+                  <td className="px-2 py-1.5">
+                    {accessory === 'none' ? (
+                      <span className="text-gray-400">—</span>
+                    ) : (
+                      <span className="font-medium">
+                        {ACCESSORY_LABEL[accessory]}
+                        <span className="block text-[8px] text-gray-500">
+                          + {formatINR(accessoryCharge)} (incl. GST)
+                        </span>
                       </span>
-                    </span>
-                  )}
-                </td>
+                    )}
+                  </td>
+                )}
                 <td className="px-2 py-1.5">{item.HSN || '—'}</td>
                 <td className="px-2 py-1.5 text-right">{item.qty}</td>
                 <td className="px-2 py-1.5 text-right">{item.rate > 0 ? formatINR(item.rate) : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{rateWithGst > 0 ? formatINR(rateWithGst) : '—'}</td>
                 {isOtherState ? (
                   <>
                     <td className="px-2 py-1.5 text-right">{item.igstPct > 0 ? `${item.igstPct}%` : '—'}</td>
@@ -292,9 +303,10 @@ export default function InvoicePreview({
           {items.length > 0 && (
             <tr className="border-t-2 border-gray-800 font-semibold bg-gray-50">
               <td className="px-2 py-2 text-[10px]">Totals</td>
-              <td colSpan={5} />
+              <td colSpan={hasAccessory ? 5 : 4} />
               <td className="px-2 py-2 text-right text-[10px]">{totalQty}</td>
               <td className="px-2 py-2 text-right text-[10px]">{formatINR(subTotal)}</td>
+              <td />
               {isOtherState ? (
                 <>
                   <td />

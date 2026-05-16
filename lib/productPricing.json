@@ -1,0 +1,245 @@
+{
+  "meta": {
+    "description": "Yakuza e-vehicle prices extracted from the dealer price-list PDFs in productpdf/. All prices are GST-INCLUSIVE (products carry 5% GST = 2.5% CGST + 2.5% SGST). A null value means that battery configuration is Not Available (N/A) for that dealer type and is hidden in the PI creator variant dropdown.",
+    "dealerTypes": ["areadealer", "districtdealer", "distributor", "divisionaldistributor"],
+    "sources": [
+      "productpdf/AREA DEALER.pdf",
+      "productpdf/DIST. DEALER.pdf",
+      "productpdf/DISTRIBUTOR  4.pdf",
+      "productpdf/DIV. DISTRIBUTOR.pdf"
+    ]
+  },
+  "products": [
+    {
+      "name": "RUBIE",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 31500, "districtdealer": 31150, "distributor": 30500, "divisionaldistributor": 30850 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 34000, "districtdealer": 33650, "distributor": 33000, "divisionaldistributor": 33350 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 36500, "districtdealer": 36150, "distributor": 35500, "divisionaldistributor": 35850 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 40000, "districtdealer": 39350, "distributor": 38000, "divisionaldistributor": 38650 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 24000, "districtdealer": 23650, "distributor": 23000, "divisionaldistributor": 23350 } }
+      ]
+    },
+    {
+      "name": "RAMIE",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 32500, "districtdealer": 32150, "distributor": 31500, "divisionaldistributor": 31850 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 35000, "districtdealer": 34650, "distributor": 34000, "divisionaldistributor": 34350 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 37500, "districtdealer": 37150, "distributor": 36500, "divisionaldistributor": 36850 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 41000, "districtdealer": 40350, "distributor": 39000, "divisionaldistributor": 39650 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 25000, "districtdealer": 24650, "distributor": 24000, "divisionaldistributor": 24350 } }
+      ]
+    },
+    {
+      "name": "NEU",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 33000, "districtdealer": 32650, "distributor": 32000, "divisionaldistributor": 32350 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 35500, "districtdealer": 35150, "distributor": 34500, "divisionaldistributor": 34850 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 38000, "districtdealer": 37650, "distributor": 37000, "divisionaldistributor": 37350 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 41500, "districtdealer": 40850, "distributor": 39500, "divisionaldistributor": 40150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 25500, "districtdealer": 25150, "distributor": 24500, "divisionaldistributor": 24850 } }
+      ]
+    },
+    {
+      "name": "VIRAJ",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 34000, "districtdealer": 33650, "distributor": 33000, "divisionaldistributor": 33350 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 36500, "districtdealer": 36150, "distributor": 35500, "divisionaldistributor": 35850 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": null,  "districtdealer": 38650, "distributor": 38000, "divisionaldistributor": 38350 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 26500, "districtdealer": 26150, "distributor": 25500, "divisionaldistributor": 25850 } }
+      ]
+    },
+    {
+      "name": "CHERRY",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 36000, "districtdealer": 35500, "distributor": 34500, "divisionaldistributor": 35000 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 38500, "districtdealer": 38000, "distributor": 37000, "divisionaldistributor": 37500 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 41000, "districtdealer": 40500, "distributor": 39500, "divisionaldistributor": 40000 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 44500, "districtdealer": 43850, "distributor": 42500, "divisionaldistributor": 43150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 28500, "districtdealer": 28000, "distributor": 27000, "divisionaldistributor": 27500 } }
+      ]
+    },
+    {
+      "name": "UTILITY",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 36000, "districtdealer": 35500, "distributor": 34500, "divisionaldistributor": 35000 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 38500, "districtdealer": 38000, "distributor": 37000, "divisionaldistributor": 37500 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 26000, "districtdealer": 25500, "distributor": 24500, "divisionaldistributor": 25000 } }
+      ]
+    },
+    {
+      "name": "LOTUS",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 37000, "districtdealer": 36500, "distributor": 35500, "divisionaldistributor": 36000 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 39500, "districtdealer": 39000, "distributor": 38000, "divisionaldistributor": 38500 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 42000, "districtdealer": 41500, "distributor": 40500, "divisionaldistributor": 41000 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 45500, "districtdealer": 44850, "distributor": 43500, "divisionaldistributor": 44150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 29500, "districtdealer": 29000, "distributor": 28000, "divisionaldistributor": 28500 } }
+      ]
+    },
+    {
+      "name": "RAAVTA",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 40500, "districtdealer": 40000, "distributor": 39000, "divisionaldistributor": 39500 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 43000, "districtdealer": 42500, "distributor": 41500, "divisionaldistributor": 42000 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 45500, "districtdealer": 45000, "distributor": 44000, "divisionaldistributor": 44500 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 49000, "districtdealer": 48350, "distributor": 47000, "divisionaldistributor": 47650 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 33000, "districtdealer": 32500, "distributor": 31500, "divisionaldistributor": 32000 } }
+      ]
+    },
+    {
+      "name": "DELTA",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 41000, "districtdealer": 40500, "distributor": 39500, "divisionaldistributor": 40000 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 43500, "districtdealer": 43000, "distributor": 42000, "divisionaldistributor": 42500 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 47000, "districtdealer": 46350, "distributor": 45000, "divisionaldistributor": 45650 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 31000, "districtdealer": 30500, "distributor": 29500, "divisionaldistributor": 30000 } }
+      ]
+    },
+    {
+      "name": "UTILITY PRO",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 36000, "districtdealer": 35500, "distributor": 34500, "divisionaldistributor": 35000 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 38500, "districtdealer": 38000, "distributor": 37000, "divisionaldistributor": 37500 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 26000, "districtdealer": 25500, "distributor": 24500, "divisionaldistributor": 25000 } }
+      ]
+    },
+    {
+      "name": "SPARROW",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 43500, "districtdealer": 42850, "distributor": 41500, "divisionaldistributor": 42150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 46000, "districtdealer": 45350, "distributor": 44000, "divisionaldistributor": 44650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 49500, "districtdealer": 48850, "distributor": 47500, "divisionaldistributor": 48150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 33500, "districtdealer": 32850, "distributor": 31500, "divisionaldistributor": 32150 } }
+      ]
+    },
+    {
+      "name": "SPARROW PRO",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 44500, "districtdealer": 43850, "distributor": 42500, "divisionaldistributor": 43150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 47000, "districtdealer": 46350, "distributor": 45000, "divisionaldistributor": 45650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 50500, "districtdealer": 49850, "distributor": 48500, "divisionaldistributor": 49150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 34500, "districtdealer": 33850, "distributor": 32500, "divisionaldistributor": 33150 } }
+      ]
+    },
+    {
+      "name": "SPARROW PLUS",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 45500, "districtdealer": 44850, "distributor": 43500, "divisionaldistributor": 44150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 48000, "districtdealer": 47350, "distributor": 46000, "divisionaldistributor": 46650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 51500, "districtdealer": 50850, "distributor": 49500, "divisionaldistributor": 50150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 35500, "districtdealer": 34850, "distributor": 33500, "divisionaldistributor": 34150 } }
+      ]
+    },
+    {
+      "name": "SPARROW X",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 46500, "districtdealer": 45850, "distributor": 44500, "divisionaldistributor": 45150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 49000, "districtdealer": 48350, "distributor": 47000, "divisionaldistributor": 47650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 52500, "districtdealer": 51850, "distributor": 50500, "divisionaldistributor": 51150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 36500, "districtdealer": 35850, "distributor": 34500, "divisionaldistributor": 35150 } }
+      ]
+    },
+    {
+      "name": "SOPHIE",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 47500, "districtdealer": 46850, "distributor": 45500, "divisionaldistributor": 46150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 50000, "districtdealer": 49350, "distributor": 48000, "divisionaldistributor": 48650 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 37500, "districtdealer": 36850, "distributor": 35500, "divisionaldistributor": 36150 } }
+      ]
+    },
+    {
+      "name": "UNIQUE MANO",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 46500, "districtdealer": 45850, "distributor": 44500, "divisionaldistributor": 45150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 49000, "districtdealer": 48350, "distributor": 47000, "divisionaldistributor": 47650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 52500, "districtdealer": 51850, "distributor": 50500, "divisionaldistributor": 51150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 36500, "districtdealer": 35850, "distributor": 34500, "divisionaldistributor": 35150 } }
+      ]
+    },
+    {
+      "name": "AQABA",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 45500, "districtdealer": 44850, "distributor": 43500, "divisionaldistributor": 44150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 48000, "districtdealer": 47350, "distributor": 46000, "divisionaldistributor": 46650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 51500, "districtdealer": 50850, "distributor": 49500, "divisionaldistributor": 50150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 35500, "districtdealer": 34850, "distributor": 33500, "divisionaldistributor": 34150 } }
+      ]
+    },
+    {
+      "name": "ASVA",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 45500, "districtdealer": 44850, "distributor": 43500, "divisionaldistributor": 44150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 48000, "districtdealer": 47350, "distributor": 46000, "divisionaldistributor": 46650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 51500, "districtdealer": 50850, "distributor": 49500, "divisionaldistributor": 50150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 35500, "districtdealer": 34850, "distributor": 33500, "divisionaldistributor": 34150 } }
+      ]
+    },
+    {
+      "name": "SHAMA",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 42000, "districtdealer": 41350, "distributor": 40000, "divisionaldistributor": 40650 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 44500, "districtdealer": 43850, "distributor": 42500, "divisionaldistributor": 43150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 32000, "districtdealer": 31350, "distributor": 30000, "divisionaldistributor": 30650 } }
+      ]
+    },
+    {
+      "name": "DUSTER",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 29500, "districtdealer": 29250, "distributor": 28750, "divisionaldistributor": 29000 } }
+      ]
+    },
+    {
+      "name": "ZUNAID",
+      "variants": [
+        { "key": "48v",     "label": "48V",                    "prices": { "areadealer": 34500, "districtdealer": 34000, "distributor": 33000, "divisionaldistributor": 33500 } },
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 37000, "districtdealer": 36500, "distributor": 35500, "divisionaldistributor": 36000 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 39500, "districtdealer": 39000, "distributor": 38000, "divisionaldistributor": 38500 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 43000, "districtdealer": 42350, "distributor": 41000, "divisionaldistributor": 41650 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 27000, "districtdealer": 26500, "distributor": 25500, "divisionaldistributor": 26000 } }
+      ]
+    },
+    {
+      "name": "RUSH",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 46000, "districtdealer": 45350, "distributor": 44000, "divisionaldistributor": 44650 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 48500, "districtdealer": 47850, "distributor": 46500, "divisionaldistributor": 47150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 36000, "districtdealer": 35350, "distributor": 34000, "divisionaldistributor": 34650 } }
+      ]
+    },
+    {
+      "name": "LUCKA",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 49500, "districtdealer": 48850, "distributor": 47500, "divisionaldistributor": 48150 } },
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 52000, "districtdealer": 51350, "distributor": 50000, "divisionaldistributor": 50650 } },
+        { "key": "60v43ah", "label": "60V 43Ah",               "prices": { "areadealer": 55500, "districtdealer": 54850, "distributor": null,  "divisionaldistributor": 54150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 39500, "districtdealer": 38850, "distributor": 37500, "divisionaldistributor": 38150 } }
+      ]
+    },
+    {
+      "name": "RUSTER",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 31000, "districtdealer": 30750, "distributor": 30250, "divisionaldistributor": 30500 } }
+      ]
+    },
+    {
+      "name": "ASHER",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 34000, "districtdealer": 33650, "distributor": 33000, "divisionaldistributor": 33350 } }
+      ]
+    },
+    {
+      "name": "DRAGGER",
+      "variants": [
+        { "key": "60v",     "label": "60V",                    "prices": { "areadealer": 32500, "districtdealer": 32150, "distributor": 31500, "divisionaldistributor": 31850 } }
+      ]
+    },
+    {
+      "name": "ARSHANA",
+      "variants": [
+        { "key": "72v",     "label": "72V",                    "prices": { "areadealer": 54500, "districtdealer": 53850, "distributor": 52500, "divisionaldistributor": 53150 } },
+        { "key": "wobc",    "label": "Without Battery/Charger","prices": { "areadealer": 42000, "districtdealer": 41350, "distributor": 40000, "divisionaldistributor": 40650 } }
+      ]
+    }
+  ]
+}

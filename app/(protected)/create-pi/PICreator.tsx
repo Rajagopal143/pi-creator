@@ -25,6 +25,8 @@ interface ComputedLineItem extends LineItemState {
   variantName: string;
   HSN: string;
   rate: number;
+  /** Per-unit price including GST. */
+  rateWithGst: number;
   sgstPct: number;
   cgstPct: number;
   igstPct: number;
@@ -47,6 +49,8 @@ interface Props {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const INSURANCE_RATE = 0.075 / 100;
+/** GST folded into the insurance charge — included in the amount, not shown separately. */
+const INSURANCE_GST_RATE = 0.18;
 
 /** GST-inclusive flat charge added to a line total when an accessory is selected. */
 const ACCESSORY_CHARGE: Record<AccessoryType, number> = {
@@ -55,10 +59,15 @@ const ACCESSORY_CHARGE: Record<AccessoryType, number> = {
   steel: 1500,
 };
 
+/**
+ * Price tiers map to the four dealer price-list PDFs. The internal `PriceTier`
+ * keys are kept (they drive `ProductVariant` price fields), only the labels
+ * reflect the real dealer types.
+ */
 const PRICE_TIERS: { value: PriceTier; label: string }[] = [
-  { value: 'dealer',      label: 'Dealer' },
   { value: 'distributor', label: 'Distributor' },
-  { value: 'subdealer',   label: 'Subdealer' },
+  { value: 'subdealer',   label: 'Divisional Distributor' },
+  { value: 'dealer',      label: 'District Dealer' },
   { value: 'areadealer',  label: 'Area Dealer' },
 ];
 
@@ -231,9 +240,10 @@ function LineItemRow({
   onUpdate: (id: string, updates: Partial<LineItemState>) => void;
   onRemove: (id: string) => void;
 }) {
+  // Only variants priced for the selected tier are offered — N/A configs (price 0) are hidden.
   const productVariants = useMemo(
-    () => variants.filter(v => v.productId === item.productId),
-    [variants, item.productId],
+    () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier) > 0),
+    [variants, item.productId, priceTier],
   );
   const selectedProduct = useMemo(
     () => products.find(p => p.id === item.productId),
@@ -263,7 +273,7 @@ function LineItemRow({
           <option value="">— Select Variant —</option>
           {productVariants.map(v => (
             <option key={v.id} value={v.id}>
-              {v.name} — {formatINR(getVariantPrice(v, priceTier))}
+              {v.name}
             </option>
           ))}
         </select>
@@ -313,7 +323,7 @@ function LineItemRow({
         />
       </td>
       <td className="py-2 px-2 text-right text-sm text-gray-700 w-28 whitespace-nowrap">
-        {item.rate > 0 ? formatINR(item.rate) : '—'}
+        {item.rateWithGst > 0 ? formatINR(item.rateWithGst) : '—'}
       </td>
       <td className="py-2 px-2 text-right text-sm font-medium text-gray-800 w-28 whitespace-nowrap">
         {item.totalAmount > 0 ? formatINR(item.totalAmount) : '—'}
@@ -552,6 +562,9 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
       const cgstPct = product?.cgst ?? 0;
       const igstPct = sgstPct + cgstPct;
 
+      // Per-unit price including GST (same whether SGST+CGST or IGST is applied).
+      const rateWithGst = rate + (rate * igstPct) / 100;
+
       const sgstAmount = taxType === 'within_state' ? (taxableAmount * sgstPct) / 100 : 0;
       const cgstAmount = taxType === 'within_state' ? (taxableAmount * cgstPct) / 100 : 0;
       const igstAmount = taxType === 'other_state' ? (taxableAmount * igstPct) / 100 : 0;
@@ -565,6 +578,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
         variantName: variant?.name ?? '',
         HSN: product?.HSN ?? '',
         rate,
+        rateWithGst,
         sgstPct,
         cgstPct,
         igstPct,
@@ -584,7 +598,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const totalIGST      = useMemo(() => computedItems.reduce((s, i) => s + i.igstAmount, 0), [computedItems]);
   const totalAccessory = useMemo(() => computedItems.reduce((s, i) => s + i.accessoryCharge, 0), [computedItems]);
   const totalGST   = totalSGST + totalCGST + totalIGST;
-  const insurance  = insuranceEnabled ? subTotal * INSURANCE_RATE : 0;
+  const insurance  = insuranceEnabled ? subTotal * INSURANCE_RATE * (1 + INSURANCE_GST_RATE) : 0;
   const total      = subTotal - discount + totalGST + insurance + totalAccessory;
 
   // Effective dealers carry the inline-edited addresses for this PI only.
@@ -632,6 +646,21 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
   const removeLineItem = useCallback((id: string) => {
     setLineItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
   }, []);
+
+  // When the price tier changes, drop any selected variant now N/A for that tier.
+  useEffect(() => {
+    setLineItems(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        if (item.variantId == null) return item;
+        const v = variants.find(x => x.id === item.variantId);
+        if (v && getVariantPrice(v, priceTier) > 0) return item;
+        changed = true;
+        return { ...item, variantId: null };
+      });
+      return changed ? next : prev;
+    });
+  }, [priceTier, variants]);
 
   // ── Dealer select ────────────────────────────────────────────────────────────
   const handleBillToSelect = useCallback((d: Dealer) => {
@@ -929,7 +958,7 @@ export default function PICreator({ dealers, products, variants, manufacturingUn
             <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="border-b-2 border-gray-200">
-                  {['#', 'Model', 'Variant', 'Colour', 'Accessory', 'Qty', 'Rate', 'Line Total', ''].map(h => (
+                  {['#', 'Model', 'Variant', 'Colour', 'Accessory', 'Qty', 'Rate (incl. GST)', 'Line Total', ''].map(h => (
                     <th key={h} className="text-[10px] uppercase text-gray-400 font-semibold text-left px-2 pb-2 tracking-wide">
                       {h}
                     </th>
