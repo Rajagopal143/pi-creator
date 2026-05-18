@@ -141,6 +141,42 @@ function toObjectId(id: string): mongoose.Types.ObjectId | null {
   return id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
 }
 
+/**
+ * Reshapes submitted form fields into the form's initial-values shape, so an
+ * error response can echo them back and the inputs keep what the user typed.
+ */
+function formFieldsToInitial(f: DealerFormFields): DealerFormInitial {
+  return {
+    id: f.dealerId,
+    dealerId: f.dealerId,
+    userType: f.userType,
+    salutation: f.salutation,
+    firstName: f.firstName,
+    lastName: f.lastName,
+    orgName: f.orgName,
+    gstNo: f.gstNo,
+    orgEmail: f.orgEmail,
+    contact: f.contact,
+    regionId: f.regionId,
+    zoneId: f.zoneId,
+    manufacturingUnitId: f.manufacturingUnitId,
+    parentDistributorId: f.parentDistributorId,
+    parentDealerId: f.parentDealerId,
+    billingAddress: { ...f.billing },
+    shippingAddress: { ...f.shipping },
+    bankDetails: {
+      accountType: f.accountType,
+      beneficiaryName: f.beneficiaryName,
+      bankName: f.bankName,
+      accountNumber: f.accountNumber,
+      IFSC: f.IFSC,
+    },
+    logoBase64: f.logoBase64,
+    logoMimeType: f.logoMimeType,
+    password: f.password,
+  };
+}
+
 /** Builds the fields shared by create + update writes (everything except identity/auth). */
 function buildDealerWritePayload(f: DealerFormFields) {
   return {
@@ -173,54 +209,8 @@ function buildDealerWritePayload(f: DealerFormFields) {
   };
 }
 
-/**
- * Validates the required dealer form fields, returning a field→message map.
- * The keys match the `fieldErrors` lookups in AddDealerForm (e.g. `orgName`,
- * `billing.state`, `bank.IFSC`). An empty map means the form is valid.
- */
-function validateDealerForm(f: DealerFormFields, isEdit: boolean): Record<string, string> {
-  const errors: Record<string, string> = {};
-  const require = (value: string, key: string, label: string) => {
-    if (!value.trim()) errors[key] = `${label} is required.`;
-  };
-
-  require(f.firstName, 'firstName', 'First name');
-  require(f.lastName, 'lastName', 'Last name');
-  require(f.orgName, 'orgName', 'Firm name');
-  require(f.gstNo, 'gstNo', 'GST number');
-  require(f.orgEmail, 'orgEmail', 'Org email');
-  require(f.contact, 'contact', 'Org contact');
-  require(f.regionId, 'regionId', 'Region');
-  require(f.zoneId, 'zoneId', 'Zone');
-
-  if (f.orgEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.orgEmail)) {
-    errors.orgEmail = 'Enter a valid email address.';
-  }
-
-  if (f.userType === 'districtdealer' && !f.parentDistributorId) {
-    errors.parentDistributorId = 'Select a distributor.';
-  }
-
-  if (!isEdit) require(f.password, 'password', 'Password');
-
-  for (const side of ['billing', 'shipping'] as const) {
-    const a = f[side];
-    require(a.state, `${side}.state`, 'State');
-    require(a.address, `${side}.address`, 'Address');
-    require(a.city, `${side}.city`, 'City');
-    require(a.pincode, `${side}.pincode`, 'Pincode');
-  }
-
-  require(f.beneficiaryName, 'bank.beneficiaryName', 'Beneficiary name');
-  require(f.bankName, 'bank.bankName', 'Bank name');
-  require(f.accountNumber, 'bank.accountNumber', 'Account number');
-  require(f.IFSC, 'bank.IFSC', 'IFSC');
-  if (f.accountNumber !== f.confirmAccount) {
-    errors['bank.confirmAccount'] = 'Account numbers do not match.';
-  }
-
-  return errors;
-}
+// Dealer form validation is intentionally omitted — no field is required to
+// create or edit a dealer.
 
 // ─── Read actions ─────────────────────────────────────────────────────────────
 
@@ -342,11 +332,6 @@ export async function createDealerAction(
 ): Promise<CreateDealerState> {
   const f = readDealerForm(formData);
 
-  const fieldErrors = validateDealerForm(f, false);
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: 'Please fix the highlighted fields below.', fieldErrors };
-  }
-
   await connectDB();
 
   try {
@@ -370,6 +355,7 @@ export async function createDealerAction(
       ok: false,
       message: err instanceof Error ? err.message : 'Failed to create dealer.',
       fieldErrors: {},
+      values: formFieldsToInitial(f),
     };
   }
 
@@ -387,19 +373,20 @@ export async function updateDealerAction(
   const f = readDealerForm(formData);
 
   if (!f.dealerId || !mongoose.Types.ObjectId.isValid(f.dealerId)) {
-    return { ok: false, message: 'Invalid dealer reference.', fieldErrors: {} };
-  }
-
-  const fieldErrors = validateDealerForm(f, true);
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: 'Please fix the highlighted fields below.', fieldErrors };
+    return {
+      ok: false, message: 'Invalid dealer reference.', fieldErrors: {},
+      values: formFieldsToInitial(f),
+    };
   }
 
   await connectDB();
 
   const existing = await DealerRecord.findById(f.dealerId).lean();
   if (!existing) {
-    return { ok: false, message: 'Dealer not found.', fieldErrors: {} };
+    return {
+      ok: false, message: 'Dealer not found.', fieldErrors: {},
+      values: formFieldsToInitial(f),
+    };
   }
 
   const update: Record<string, unknown> = buildDealerWritePayload(f);
@@ -415,6 +402,7 @@ export async function updateDealerAction(
       ok: false,
       message: err instanceof Error ? err.message : 'Failed to update dealer.',
       fieldErrors: {},
+      values: formFieldsToInitial(f),
     };
   }
 

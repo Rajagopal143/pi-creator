@@ -46,6 +46,11 @@ export default function AddDealerForm({
   );
   const fe = state.fieldErrors;
 
+  // On a failed submit the action echoes the typed values back; the inputs read
+  // their `defaultValue` from these, so React keeps everything the user typed
+  // instead of clearing the form. Falls back to the edit dealer, then blank.
+  const initial = state.values ?? dealer;
+
   // A successful save redirects away; any returned message is a general error.
   useEffect(() => {
     if (state.message) toast.error(state.message);
@@ -159,7 +164,7 @@ export default function AddDealerForm({
               <select
                 name="salutation"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                defaultValue={dealer?.salutation ?? 'mr'}
+                defaultValue={initial?.salutation ?? 'mr'}
               >
                 <option value="mr">Mr.</option>
                 <option value="miss">Miss.</option>
@@ -170,7 +175,7 @@ export default function AddDealerForm({
                   name="firstName"
                   placeholder="First Name"
                   autoComplete="given-name"
-                  defaultValue={dealer?.firstName}
+                  defaultValue={initial?.firstName}
                   className={cn(fe.firstName && 'border-destructive')}
                 />
                 {fe.firstName ? <p className="mt-1 text-xs text-destructive">{fe.firstName}</p> : null}
@@ -180,7 +185,7 @@ export default function AddDealerForm({
                   name="lastName"
                   placeholder="Last Name"
                   autoComplete="family-name"
-                  defaultValue={dealer?.lastName}
+                  defaultValue={initial?.lastName}
                   className={cn(fe.lastName && 'border-destructive')}
                 />
                 {fe.lastName ? <p className="mt-1 text-xs text-destructive">{fe.lastName}</p> : null}
@@ -197,7 +202,7 @@ export default function AddDealerForm({
                 name="orgName"
                 placeholder="Enter Firm Name"
                 autoComplete="organization"
-                defaultValue={dealer?.orgName}
+                defaultValue={initial?.orgName}
                 className={cn(fe.orgName && 'border-destructive')}
               />
               {fe.orgName ? <p className="mt-1 text-xs text-destructive">{fe.orgName}</p> : null}
@@ -207,7 +212,7 @@ export default function AddDealerForm({
               <Input
                 name="gstNo"
                 placeholder="Enter GST No"
-                defaultValue={dealer?.gstNo}
+                defaultValue={initial?.gstNo}
                 className={cn(fe.gstNo && 'border-destructive')}
               />
               {fe.gstNo ? <p className="mt-1 text-xs text-destructive">{fe.gstNo}</p> : null}
@@ -219,7 +224,7 @@ export default function AddDealerForm({
                 type="email"
                 placeholder="Enter Email ID"
                 autoComplete="email"
-                defaultValue={dealer?.orgEmail}
+                defaultValue={initial?.orgEmail}
                 className={cn(fe.orgEmail && 'border-destructive')}
               />
               {fe.orgEmail ? <p className="mt-1 text-xs text-destructive">{fe.orgEmail}</p> : null}
@@ -230,7 +235,7 @@ export default function AddDealerForm({
                 name="contact"
                 placeholder="Contact number"
                 autoComplete="tel"
-                defaultValue={dealer?.contact}
+                defaultValue={initial?.contact}
                 className={cn(fe.contact && 'border-destructive')}
               />
               {fe.contact ? <p className="mt-1 text-xs text-destructive">{fe.contact}</p> : null}
@@ -244,7 +249,7 @@ export default function AddDealerForm({
                     'h-9 w-full rounded-md border border-input bg-background px-2 text-sm',
                     fe.parentDistributorId && 'border-destructive',
                   )}
-                  defaultValue={dealer?.parentDistributorId ?? ''}
+                  defaultValue={initial?.parentDistributorId ?? ''}
                 >
                   <option value="" disabled>
                     Select Distributor
@@ -266,7 +271,7 @@ export default function AddDealerForm({
                 <select
                   name="parentDealerId"
                   className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  defaultValue={dealer?.parentDealerId ?? ''}
+                  defaultValue={initial?.parentDealerId ?? ''}
                 >
                   <option value="">— None —</option>
                   {parentDealers.map(d => (
@@ -282,7 +287,7 @@ export default function AddDealerForm({
               <Input
                 name="regionId"
                 placeholder="Enter region"
-                defaultValue={dealer?.regionId}
+                defaultValue={initial?.regionId}
                 className={cn(fe.regionId && 'border-destructive')}
               />
               {fe.regionId ? <p className="mt-1 text-xs text-destructive">{fe.regionId}</p> : null}
@@ -292,7 +297,7 @@ export default function AddDealerForm({
               <Input
                 name="zoneId"
                 placeholder="Enter zone"
-                defaultValue={dealer?.zoneId}
+                defaultValue={initial?.zoneId}
                 className={cn(fe.zoneId && 'border-destructive')}
               />
               {fe.zoneId ? <p className="mt-1 text-xs text-destructive">{fe.zoneId}</p> : null}
@@ -302,7 +307,7 @@ export default function AddDealerForm({
               <select
                 name="manufacturingUnitId"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                defaultValue={dealer?.manufacturingUnitId != null ? String(dealer.manufacturingUnitId) : ''}
+                defaultValue={initial?.manufacturingUnitId != null ? String(initial.manufacturingUnitId) : ''}
               >
                 <option value="">— None —</option>
                 {manufacturingUnits.map(u => (
@@ -320,6 +325,7 @@ export default function AddDealerForm({
                   type={showPassword ? 'text' : 'password'}
                   placeholder={isEdit ? 'Leave blank to keep current' : '••••••••'}
                   autoComplete="new-password"
+                  defaultValue={initial?.password ?? ''}
                   className={cn('pr-10', fe.password && 'border-destructive')}
                 />
                 <button
@@ -383,7 +389,7 @@ export default function AddDealerForm({
             prefix="billing"
             states={states}
             errors={fe}
-            address={dealer?.billingAddress}
+            address={initial?.billingAddress}
           />
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -402,7 +408,7 @@ export default function AddDealerForm({
               prefix="shipping"
               states={states}
               errors={fe}
-              address={dealer?.shippingAddress}
+              address={initial?.shippingAddress}
               hideTitle
             />
           </div>
@@ -441,7 +447,7 @@ export default function AddDealerForm({
           <Field label="Beneficiary Name" required>
             <Input
               name="beneficiaryName"
-              defaultValue={dealer?.bankDetails.beneficiaryName}
+              defaultValue={initial?.bankDetails.beneficiaryName}
               className={cn(fe['bank.beneficiaryName'] && 'border-destructive')}
             />
             {fe['bank.beneficiaryName'] ? (
@@ -451,7 +457,7 @@ export default function AddDealerForm({
           <Field label="Bank Name" required>
             <Input
               name="bankName"
-              defaultValue={dealer?.bankDetails.bankName}
+              defaultValue={initial?.bankDetails.bankName}
               className={cn(fe['bank.bankName'] && 'border-destructive')}
             />
             {fe['bank.bankName'] ? <p className="mt-1 text-xs text-destructive">{fe['bank.bankName']}</p> : null}
@@ -459,7 +465,7 @@ export default function AddDealerForm({
           <Field label="Account Number" required>
             <Input
               name="accountNumber"
-              defaultValue={dealer?.bankDetails.accountNumber}
+              defaultValue={initial?.bankDetails.accountNumber}
               className={cn(fe['bank.accountNumber'] && 'border-destructive')}
             />
             {fe['bank.accountNumber'] ? (
@@ -469,7 +475,7 @@ export default function AddDealerForm({
           <Field label="Re-enter Account Number" required>
             <Input
               name="confirmAccount"
-              defaultValue={dealer?.bankDetails.accountNumber}
+              defaultValue={initial?.bankDetails.accountNumber}
               className={cn(fe['bank.confirmAccount'] && 'border-destructive')}
             />
             {fe['bank.confirmAccount'] ? (
@@ -479,7 +485,7 @@ export default function AddDealerForm({
           <Field label="IFSC" required>
             <Input
               name="IFSC"
-              defaultValue={dealer?.bankDetails.IFSC}
+              defaultValue={initial?.bankDetails.IFSC}
               className={cn(fe['bank.IFSC'] && 'border-destructive')}
             />
             {fe['bank.IFSC'] ? <p className="mt-1 text-xs text-destructive">{fe['bank.IFSC']}</p> : null}
@@ -501,18 +507,16 @@ export default function AddDealerForm({
 
 function Field({
   label,
-  required,
   children,
 }: {
   label: string;
+  /** Accepted for call-site compatibility — no field is required, so unused. */
   required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid gap-1.5 md:grid-cols-[minmax(0,180px)_1fr] md:items-center">
-      <label className="text-sm font-medium">
-        {label} {required ? <span className="text-destructive">*</span> : null}
-      </label>
+      <label className="text-sm font-medium">{label}</label>
       <div>{children}</div>
     </div>
   );

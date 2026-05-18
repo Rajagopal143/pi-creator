@@ -40,12 +40,16 @@ export interface DealerFormInitial {
   bankDetails: DealerBankDetails;
   logoBase64: string;
   logoMimeType: string;
+  /** Only populated when echoed back after a failed submit. */
+  password?: string;
 }
 
 export type CreateDealerState = {
   ok: boolean;
   message: string;
   fieldErrors: Record<string, string>;
+  /** Submitted values echoed back on error so the form keeps what was typed. */
+  values?: DealerFormInitial;
 };
 
 export const initialCreateState: CreateDealerState = {
