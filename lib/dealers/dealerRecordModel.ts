@@ -88,7 +88,7 @@ const DealerRecordSchema = new Schema<DealerRecordDoc>(
     orgName: { type: String, required: true },
     orgDisplayName: { type: String, default: '' },
     gstNo: { type: String, default: '' },
-    orgEmail: { type: String, required: true },
+    orgEmail: { type: String, default: '' },
     contact: { type: String, default: '' },
     passwordHash: { type: String, default: '' },
     parentDistributorId: { type: Schema.Types.ObjectId, ref: 'DealerRecord', default: null },
