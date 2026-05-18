@@ -34,7 +34,10 @@ function csvCell(value: string | number): string {
 export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
   const rows: (string | number)[][] = [[...COLUMNS]];
 
-  invoices.forEach((inv, invIndex) => {
+  // The list arrives newest-first; the export is reversed to read oldest-first.
+  const ordered = [...invoices].reverse();
+
+  ordered.forEach((inv, invIndex) => {
     const items = inv.lineItems ?? [];
     const date = formatExportDate(inv.invoiceDate);
     const billTo = inv.dealer?.orgName ?? '';
@@ -58,7 +61,7 @@ export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
     }
 
     // Blank row visually separates one invoice block from the next.
-    if (invIndex < invoices.length - 1) rows.push(['', '', '', '', '', '', '']);
+    if (invIndex < ordered.length - 1) rows.push(['', '', '', '', '', '', '']);
   });
 
   return rows.map(r => r.map(csvCell).join(',')).join('\r\n');

@@ -24,6 +24,10 @@ export interface ComputedLineItem extends LineItemState {
   rate: number;
   /** Per-unit price including GST. */
   rateWithGst: number;
+  /** Per-unit rate with the per-unit accessory base folded in (shown in the row). */
+  displayRate: number;
+  /** Per-unit GST-inclusive rate with the per-unit accessory price folded in. */
+  displayRateWithGst: number;
   sgstPct: number;
   cgstPct: number;
   igstPct: number;

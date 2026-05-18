@@ -151,9 +151,14 @@ export function usePICreator({
 
       // Accessory price already includes 5% GST — split it into a pre-tax base
       // (shown in the sub total) and the GST component (added to total GST).
-      const accessoryInclusive = (ACCESSORY_CHARGE[item.accessory] ?? 0) * item.qty;
+      const accessoryPerUnit = ACCESSORY_CHARGE[item.accessory] ?? 0; // GST-inclusive
+      const accessoryInclusive = accessoryPerUnit * item.qty;
       const accessoryCharge = accessoryInclusive / (1 + ACCESSORY_GST_RATE / 100);
       const accessoryGst = accessoryInclusive - accessoryCharge;
+
+      // Per-row rates with the accessory folded in — shown when an accessory is set.
+      const displayRate = rate + accessoryPerUnit / (1 + ACCESSORY_GST_RATE / 100);
+      const displayRateWithGst = rateWithGst + accessoryPerUnit;
 
       // Sub total carries the product value plus the pre-tax accessory base.
       const taxableAmount = productTaxable + accessoryCharge;
@@ -178,6 +183,8 @@ export function usePICreator({
         HSN: product?.HSN ?? '',
         rate,
         rateWithGst,
+        displayRate,
+        displayRateWithGst,
         sgstPct,
         cgstPct,
         igstPct,

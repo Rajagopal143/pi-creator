@@ -45,6 +45,10 @@ export interface PreviewLineItem {
   rate: number;
   /** Per-unit price including GST. Optional for legacy invoices. */
   rateWithGst?: number;
+  /** Per-unit rate with the accessory folded in. Optional for legacy invoices. */
+  displayRate?: number;
+  /** Per-unit GST-inclusive rate with the accessory folded in. Optional for legacy invoices. */
+  displayRateWithGst?: number;
   sgstPct: number;
   cgstPct: number;
   igstPct: number;
@@ -260,7 +264,10 @@ export default function InvoicePreview({
             items.map((item, idx) => {
               const accessory = item.accessory ?? 'none';
               const accessoryCharge = item.accessoryCharge ?? 0;
-              const rateWithGst = item.rateWithGst ?? item.rate + (item.rate * item.igstPct) / 100;
+              // Rate columns include the accessory amount when one is selected.
+              const rate = item.displayRate ?? item.rate;
+              const rateWithGst =
+                item.displayRateWithGst ?? item.rateWithGst ?? item.rate + (item.rate * item.igstPct) / 100;
               return (
               <tr key={item.id} className="border-b border-gray-100">
                 <td className="px-2 py-1.5">{idx + 1}</td>
@@ -282,7 +289,7 @@ export default function InvoicePreview({
                 )}
                 <td className="px-2 py-1.5">{item.HSN || '—'}</td>
                 <td className="px-2 py-1.5 text-right">{item.qty}</td>
-                <td className="px-2 py-1.5 text-right">{item.rate > 0 ? formatINR(item.rate) : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{rate > 0 ? formatINR(rate) : '—'}</td>
                 <td className="px-2 py-1.5 text-right">{rateWithGst > 0 ? formatINR(rateWithGst) : '—'}</td>
                 {isOtherState ? (
                   <>

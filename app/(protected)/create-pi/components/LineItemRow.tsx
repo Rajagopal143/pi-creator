@@ -81,7 +81,7 @@ export function LineItemRow({
         />
       </td>
       <td className="py-2 px-2 text-right text-sm text-gray-700 w-28 whitespace-nowrap">
-        {item.rateWithGst > 0 ? formatINR(item.rateWithGst) : '—'}
+        {item.displayRateWithGst > 0 ? formatINR(item.displayRateWithGst) : '—'}
       </td>
       <td className="py-2 px-2 text-right text-sm font-medium text-gray-800 w-28 whitespace-nowrap">
         {item.totalAmount > 0 ? formatINR(item.totalAmount) : '—'}
