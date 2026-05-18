@@ -1,0 +1,425 @@
+'use client';
+
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
+import type { Dealer, Product, ProductVariant, ManufacturingUnit } from '@/lib/csvData';
+import type { InvoiceCounterDTO } from '@/lib/invoiceCounterModel';
+import type { InvoicePreviewProps } from './InvoicePreview';
+import type {
+  AccessoryType, ComputedLineItem, DealerAddress, LineItemState, PriceTier, TaxType,
+} from './types';
+import {
+  ACCESSORY_CHARGE, ACCESSORY_GST_RATE, DUE_DATE_OFFSET_DAYS, EMPTY_ADDRESS,
+  INSURANCE_GST_RATE, INSURANCE_RATE, TRANSPORT_GST_RATE,
+} from './constants';
+import { addDaysISO, getVariantPrice, normalizeAddress, todayISO } from './utils';
+
+export interface PICreatorInput {
+  dealers: Dealer[];
+  products: Product[];
+  variants: ProductVariant[];
+  manufacturingUnits: ManufacturingUnit[];
+  editInvoiceId?: string;
+}
+
+/**
+ * Holds all PI-creator state, derived totals, effects and handlers.
+ * Keeping this in a hook keeps `PICreator` itself a thin composition layer.
+ */
+export function usePICreator({
+  dealers, products, variants, manufacturingUnits, editInvoiceId,
+}: PICreatorInput) {
+  // ── Bill To / Ship To dealers ──────────────────────────────────────────────
+  const [billToSearch, setBillToSearch] = useState('');
+  const [billToDealer, setBillToDealer] = useState<Dealer | null>(null);
+  const [billToAddr, setBillToAddr] = useState<DealerAddress>(EMPTY_ADDRESS);
+
+  const [shipToSearch, setShipToSearch] = useState('');
+  const [shipToDealer, setShipToDealer] = useState<Dealer | null>(null);
+  const [shipToAddr, setShipToAddr] = useState<DealerAddress>(EMPTY_ADDRESS);
+
+  // ── Invoice meta ───────────────────────────────────────────────────────────
+  const [priceTier, setPriceTier] = useState<PriceTier>('dealer');
+  const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
+    manufacturingUnits.length === 1 ? manufacturingUnits[0] : null,
+  );
+  const [taxType, setTaxType] = useState<TaxType>('within_state');
+  const [lineItems, setLineItems] = useState<LineItemState[]>([
+    { id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' },
+  ]);
+  const [invoiceDate, setInvoiceDate] = useState(todayISO());
+  const [dueDate, setDueDate] = useState(addDaysISO(todayISO(), DUE_DATE_OFFSET_DAYS));
+  const [seqNumber, setSeqNumber] = useState('');
+  const [counters, setCounters] = useState<InvoiceCounterDTO[]>([]);
+  // The invoice number assigned by the server on save, or loaded when editing.
+  const [assignedNumber, setAssignedNumber] = useState<string | null>(null);
+  const [discount, setDiscount] = useState(0);
+  // Transportation charge entered GST-exclusive; 18% GST is added automatically.
+  const [transportCharge, setTransportCharge] = useState(0);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const [loadingInvoice, setLoadingInvoice] = useState(false);
+
+  // ── Preview modal / save state ─────────────────────────────────────────────
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // ── Invoice-number counters ────────────────────────────────────────────────
+  const fetchCounters = useCallback(async () => {
+    try {
+      const res = await fetch('/api/invoice-counters');
+      const json = await res.json() as { success: boolean; data?: InvoiceCounterDTO[] };
+      if (json.success && json.data) setCounters(json.data);
+    } catch {
+      // fallback: the invoice-number preview stays generic when the API is down
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchCounters();
+  }, [fetchCounters]);
+
+  // ── Load an existing invoice when editing ──────────────────────────────────
+  useEffect(() => {
+    if (!editInvoiceId) return;
+    const loadInvoiceForEdit = async () => {
+      setLoadingInvoice(true);
+      try {
+        const res = await fetch(`/api/invoices/${editInvoiceId}`);
+        const json = await res.json() as { success: boolean; data?: Record<string, unknown>; message?: string };
+        if (!json.success || !json.data) throw new Error(json.message || 'Failed to load invoice');
+        const invoice = json.data;
+        const billDealer = invoice.dealer as Dealer;
+        const shipDealer = (invoice.shipToDealer as Dealer) || billDealer;
+        const manufacturingUnit = invoice.manufacturingUnit as ManufacturingUnit;
+        const loadedLineItems = (invoice.lineItems as LineItemState[]) || [];
+
+        setBillToDealer(billDealer);
+        setBillToSearch(billDealer.orgName);
+        setBillToAddr(normalizeAddress(billDealer.billingAddress));
+
+        setShipToDealer(shipDealer);
+        setShipToSearch(shipDealer.orgName);
+        // Legacy invoices stored the ship address on dealer.shippingAddress.
+        setShipToAddr(normalizeAddress(shipDealer.shippingAddress || shipDealer.billingAddress));
+
+        setSelectedMU(manufacturingUnit);
+        setTaxType((invoice.taxType as TaxType) || 'within_state');
+        setLineItems(
+          loadedLineItems.length > 0
+            ? loadedLineItems.map(item => ({
+                id: item.id,
+                productId: item.productId,
+                variantId: item.variantId,
+                qty: item.qty,
+                accessory: (item.accessory as AccessoryType) || 'none',
+              }))
+            : [{ id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' }],
+        );
+        const loadedInvoiceDate = (invoice.invoiceDate as string) || todayISO();
+        setInvoiceDate(loadedInvoiceDate);
+        setDueDate(
+          (invoice.dueDate as string) || addDaysISO(loadedInvoiceDate, DUE_DATE_OFFSET_DAYS),
+        );
+        setSeqNumber((invoice.seqNumber as string) || '');
+        setAssignedNumber((invoice.invoiceNumber as string) || null);
+        setDiscount(Number(invoice.discount || 0));
+        setTransportCharge(Number(invoice.transportCharge || 0));
+        setInsuranceEnabled(invoice.insuranceEnabled !== false);
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Failed to load invoice');
+      } finally {
+        setLoadingInvoice(false);
+      }
+    };
+    void loadInvoiceForEdit();
+  }, [editInvoiceId]);
+
+  // ── Computed line items ────────────────────────────────────────────────────
+  const computedItems = useMemo<ComputedLineItem[]>(() => {
+    return lineItems.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      const variant = variants.find(v => v.id === item.variantId);
+      const rate = variant ? getVariantPrice(variant, priceTier) : 0;
+      const productTaxable = rate * item.qty;
+      const sgstPct = product?.sgst ?? 0;
+      const cgstPct = product?.cgst ?? 0;
+      const igstPct = sgstPct + cgstPct;
+
+      // Per-unit price including GST (same whether SGST+CGST or IGST is applied).
+      const rateWithGst = rate + (rate * igstPct) / 100;
+
+      // Accessory price already includes 5% GST — split it into a pre-tax base
+      // (shown in the sub total) and the GST component (added to total GST).
+      const accessoryInclusive = (ACCESSORY_CHARGE[item.accessory] ?? 0) * item.qty;
+      const accessoryCharge = accessoryInclusive / (1 + ACCESSORY_GST_RATE / 100);
+      const accessoryGst = accessoryInclusive - accessoryCharge;
+
+      // Sub total carries the product value plus the pre-tax accessory base.
+      const taxableAmount = productTaxable + accessoryCharge;
+
+      // Product GST applies to the product value only; the accessory's own 5%
+      // GST is split into SGST/CGST (within state) or IGST (other state) so it
+      // rolls into the total GST.
+      const sgstAmount = taxType === 'within_state'
+        ? (productTaxable * sgstPct) / 100 + accessoryGst / 2
+        : 0;
+      const cgstAmount = taxType === 'within_state'
+        ? (productTaxable * cgstPct) / 100 + accessoryGst / 2
+        : 0;
+      const igstAmount = taxType === 'other_state'
+        ? (productTaxable * igstPct) / 100 + accessoryGst
+        : 0;
+
+      return {
+        ...item,
+        productName: product?.productName ?? '',
+        variantName: variant?.name ?? '',
+        HSN: product?.HSN ?? '',
+        rate,
+        rateWithGst,
+        sgstPct,
+        cgstPct,
+        igstPct,
+        sgstAmount,
+        cgstAmount,
+        igstAmount,
+        taxableAmount,
+        accessoryCharge,
+        totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount,
+      };
+    });
+  }, [lineItems, products, variants, priceTier, taxType]);
+
+  // ── Totals ─────────────────────────────────────────────────────────────────
+  const subTotal       = useMemo(() => computedItems.reduce((s, i) => s + i.taxableAmount, 0), [computedItems]);
+  const totalSGST      = useMemo(() => computedItems.reduce((s, i) => s + i.sgstAmount, 0), [computedItems]);
+  const totalCGST      = useMemo(() => computedItems.reduce((s, i) => s + i.cgstAmount, 0), [computedItems]);
+  const totalIGST      = useMemo(() => computedItems.reduce((s, i) => s + i.igstAmount, 0), [computedItems]);
+  const totalAccessory = useMemo(() => computedItems.reduce((s, i) => s + i.accessoryCharge, 0), [computedItems]);
+  // Transportation: the entered charge is GST-exclusive; 18% GST is auto-added.
+  // It is kept separate from the product GST so the SGST/CGST/IGST breakdown stays exact.
+  const transportGST = transportCharge * (TRANSPORT_GST_RATE / 100);
+  const totalGST   = totalSGST + totalCGST + totalIGST;
+  const insurance  = insuranceEnabled ? subTotal * INSURANCE_RATE * (1 + INSURANCE_GST_RATE) : 0;
+  const rawTotal   = subTotal - discount + totalGST + insurance + transportCharge + transportGST;
+  // Round to the nearest rupee — a fraction over .5 rounds up, otherwise down.
+  const total      = Math.round(rawTotal);
+  // Signed adjustment applied to reach the rounded total (shown on the invoice).
+  const roundOff   = total - rawTotal;
+
+  // Effective dealers carry the inline-edited addresses for this PI only.
+  const effectiveBillTo = useMemo<Dealer | null>(() => {
+    if (!billToDealer) return null;
+    return { ...billToDealer, billingAddress: billToAddr };
+  }, [billToDealer, billToAddr]);
+
+  const effectiveShipTo = useMemo<Dealer | null>(() => {
+    if (!shipToDealer) return null;
+    return { ...shipToDealer, shippingAddress: shipToAddr };
+  }, [shipToDealer, shipToAddr]);
+
+  // ── Invoice number ─────────────────────────────────────────────────────────
+  // The number is assigned by the server on save; before that we show a preview
+  // built from the selected manufacturing unit's state counter.
+  const invoiceNumber = useMemo(() => {
+    if (assignedNumber) return assignedNumber;
+    const counter = selectedMU ? counters.find(c => c.state === selectedMU.state) : null;
+    if (counter) return `${counter.prefix}/${counter.series}/${counter.nextNumber}`;
+    if (selectedMU) return `${selectedMU.state}-PI/2627/—`;
+    return 'Select a manufacturing unit';
+  }, [assignedNumber, counters, selectedMU]);
+
+  // ── Line item CRUD ─────────────────────────────────────────────────────────
+  const updateLineItem = useCallback((id: string, updates: Partial<LineItemState>) => {
+    setLineItems(prev =>
+      prev.map(item => {
+        if (item.id !== id) return item;
+        const updated = { ...item, ...updates };
+        if ('productId' in updates && updates.productId !== item.productId) {
+          updated.variantId = null;
+        }
+        return updated;
+      }),
+    );
+  }, []);
+
+  const addLineItem = useCallback(() => {
+    setLineItems(prev => [
+      ...prev,
+      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 1, accessory: 'none' },
+    ]);
+  }, []);
+
+  const removeLineItem = useCallback((id: string) => {
+    setLineItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
+  }, []);
+
+  // When the price tier changes, drop any selected variant now N/A for that tier.
+  useEffect(() => {
+    setLineItems(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        if (item.variantId == null) return item;
+        const v = variants.find(x => x.id === item.variantId);
+        if (v && getVariantPrice(v, priceTier) > 0) return item;
+        changed = true;
+        return { ...item, variantId: null };
+      });
+      return changed ? next : prev;
+    });
+  }, [priceTier, variants]);
+
+  // ── Dealer search / select ─────────────────────────────────────────────────
+  const handleBillToSearchChange = useCallback((v: string) => {
+    setBillToSearch(v);
+    if (!v) { setBillToDealer(null); setBillToAddr(EMPTY_ADDRESS); }
+  }, []);
+
+  const handleShipToSearchChange = useCallback((v: string) => {
+    setShipToSearch(v);
+    if (!v) { setShipToDealer(null); setShipToAddr(EMPTY_ADDRESS); }
+  }, []);
+
+  const handleBillToSelect = useCallback((d: Dealer) => {
+    setBillToDealer(d);
+    setBillToSearch(d.orgName);
+    setBillToAddr(normalizeAddress(d.billingAddress));
+  }, []);
+
+  const handleShipToSelect = useCallback((d: Dealer) => {
+    setShipToDealer(d);
+    setShipToSearch(d.orgName);
+    // Ship To is filled from the selected dealer's BILLING address, then editable.
+    setShipToAddr(normalizeAddress(d.billingAddress));
+  }, []);
+
+  // ── Preview modal ──────────────────────────────────────────────────────────
+  const handleOpenModal = useCallback(() => {
+    setSaved(false);
+    setShowModal(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => setShowModal(false), []);
+
+  const handlePrint = useCallback(() => {
+    setShowModal(false);
+    setTimeout(() => window.print(), 100);
+  }, []);
+
+  // ── Save to DB ─────────────────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    if (!effectiveBillTo || !effectiveShipTo || !selectedMU) return;
+    setSaving(true);
+    try {
+      const payload = {
+        invoiceNumber,
+        invoiceDate,
+        dueDate,
+        seqNumber,
+        manufacturingUnit: selectedMU,
+        dealer: effectiveBillTo,
+        shipToDealer: effectiveShipTo,
+        lineItems: computedItems,
+        taxType,
+        subTotal,
+        discount,
+        totalSGST,
+        totalCGST,
+        totalIGST,
+        totalGST,
+        totalAccessory,
+        transportCharge,
+        transportGST,
+        insurance,
+        insuranceEnabled,
+        roundOff,
+        total,
+      };
+      const endpoint = editInvoiceId ? `/api/invoices/${editInvoiceId}` : '/api/invoices';
+      const method = editInvoiceId ? 'PUT' : 'POST';
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json() as {
+        success: boolean;
+        message?: string;
+        data?: { invoiceNumber?: string; seqNumber?: string };
+      };
+      if (!json.success) throw new Error(json.message || 'Failed to save');
+      // Reflect the server-assigned number (it is authoritative over the preview).
+      if (json.data?.invoiceNumber) setAssignedNumber(json.data.invoiceNumber);
+      if (json.data?.seqNumber) setSeqNumber(json.data.seqNumber);
+      setSaved(true);
+      toast.success(editInvoiceId ? 'Invoice updated.' : 'Invoice saved.');
+      await fetchCounters();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save invoice');
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
+    computedItems, taxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
+    totalGST, totalAccessory, transportCharge, transportGST, insurance, insuranceEnabled,
+    roundOff, total, fetchCounters, editInvoiceId,
+  ]);
+
+  // ── Preview props ──────────────────────────────────────────────────────────
+  const previewProps: InvoicePreviewProps = {
+    invoiceNumber,
+    invoiceDate,
+    dueDate,
+    manufacturingUnit: selectedMU,
+    dealer: effectiveBillTo,
+    shipToDealer: effectiveShipTo,
+    items: computedItems,
+    taxType,
+    subTotal,
+    discount,
+    totalSGST,
+    totalCGST,
+    totalIGST,
+    totalGST,
+    totalAccessory,
+    transportCharge,
+    transportGST,
+    insurance,
+    insuranceEnabled,
+    roundOff,
+    total,
+  };
+
+  const canConfirm =
+    !!billToDealer && !!shipToDealer && !!selectedMU && computedItems.some(i => i.productId);
+
+  return {
+    // catalog inputs
+    dealers, products, variants, manufacturingUnits, editInvoiceId,
+    // invoice meta
+    invoiceNumber, assignedNumber, selectedMU, setSelectedMU,
+    invoiceDate, setInvoiceDate, dueDate, setDueDate,
+    taxType, setTaxType, priceTier, setPriceTier,
+    // parties
+    billTo: {
+      search: billToSearch, dealer: billToDealer, addr: billToAddr,
+      onSearchChange: handleBillToSearchChange, onSelect: handleBillToSelect, onAddrChange: setBillToAddr,
+    },
+    shipTo: {
+      search: shipToSearch, dealer: shipToDealer, addr: shipToAddr,
+      onSearchChange: handleShipToSearchChange, onSelect: handleShipToSelect, onAddrChange: setShipToAddr,
+    },
+    // line items
+    computedItems, updateLineItem, addLineItem, removeLineItem,
+    // summary figures
+    subTotal, totalSGST, totalCGST, totalIGST, totalGST,
+    discount, setDiscount, transportCharge, setTransportCharge, transportGST,
+    insurance, insuranceEnabled, setInsuranceEnabled, roundOff, total,
+    // preview / save
+    previewProps, canConfirm, loadingInvoice,
+    showModal, saving, saved,
+    handleOpenModal, handleCloseModal, handlePrint, handleSave,
+  };
+}

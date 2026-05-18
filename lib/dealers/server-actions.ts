@@ -173,6 +173,55 @@ function buildDealerWritePayload(f: DealerFormFields) {
   };
 }
 
+/**
+ * Validates the required dealer form fields, returning a field→message map.
+ * The keys match the `fieldErrors` lookups in AddDealerForm (e.g. `orgName`,
+ * `billing.state`, `bank.IFSC`). An empty map means the form is valid.
+ */
+function validateDealerForm(f: DealerFormFields, isEdit: boolean): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const require = (value: string, key: string, label: string) => {
+    if (!value.trim()) errors[key] = `${label} is required.`;
+  };
+
+  require(f.firstName, 'firstName', 'First name');
+  require(f.lastName, 'lastName', 'Last name');
+  require(f.orgName, 'orgName', 'Firm name');
+  require(f.gstNo, 'gstNo', 'GST number');
+  require(f.orgEmail, 'orgEmail', 'Org email');
+  require(f.contact, 'contact', 'Org contact');
+  require(f.regionId, 'regionId', 'Region');
+  require(f.zoneId, 'zoneId', 'Zone');
+
+  if (f.orgEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.orgEmail)) {
+    errors.orgEmail = 'Enter a valid email address.';
+  }
+
+  if (f.userType === 'districtdealer' && !f.parentDistributorId) {
+    errors.parentDistributorId = 'Select a distributor.';
+  }
+
+  if (!isEdit) require(f.password, 'password', 'Password');
+
+  for (const side of ['billing', 'shipping'] as const) {
+    const a = f[side];
+    require(a.state, `${side}.state`, 'State');
+    require(a.address, `${side}.address`, 'Address');
+    require(a.city, `${side}.city`, 'City');
+    require(a.pincode, `${side}.pincode`, 'Pincode');
+  }
+
+  require(f.beneficiaryName, 'bank.beneficiaryName', 'Beneficiary name');
+  require(f.bankName, 'bank.bankName', 'Bank name');
+  require(f.accountNumber, 'bank.accountNumber', 'Account number');
+  require(f.IFSC, 'bank.IFSC', 'IFSC');
+  if (f.accountNumber !== f.confirmAccount) {
+    errors['bank.confirmAccount'] = 'Account numbers do not match.';
+  }
+
+  return errors;
+}
+
 // ─── Read actions ─────────────────────────────────────────────────────────────
 
 export async function getDealersForPIAction(): Promise<Dealer[]> {
@@ -293,23 +342,36 @@ export async function createDealerAction(
 ): Promise<CreateDealerState> {
   const f = readDealerForm(formData);
 
+  const fieldErrors = validateDealerForm(f, false);
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, message: 'Please fix the highlighted fields below.', fieldErrors };
+  }
+
   await connectDB();
 
-  const numericId = await nextDealerNumericId();
-  const dealerId = await nextDDealerId();
-  const passwordHash = await bcrypt.hash(f.password, 10);
+  try {
+    const numericId = await nextDealerNumericId();
+    const dealerId = await nextDDealerId();
+    const passwordHash = await bcrypt.hash(f.password, 10);
 
-  await DealerRecord.create({
-    ...buildDealerWritePayload(f),
-    dealerNumericId: numericId,
-    dealerId,
-    OEMProfileID: 1,
-    passwordHash,
-    logoBase64: f.logoBase64 || undefined,
-    logoMimeType: f.logoMimeType || undefined,
-    isActive: true,
-    source: 'manual',
-  });
+    await DealerRecord.create({
+      ...buildDealerWritePayload(f),
+      dealerNumericId: numericId,
+      dealerId,
+      OEMProfileID: 1,
+      passwordHash,
+      logoBase64: f.logoBase64 || undefined,
+      logoMimeType: f.logoMimeType || undefined,
+      isActive: true,
+      source: 'manual',
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Failed to create dealer.',
+      fieldErrors: {},
+    };
+  }
 
   revalidatePath('/dealers');
   revalidatePath('/create-pi');
@@ -328,6 +390,11 @@ export async function updateDealerAction(
     return { ok: false, message: 'Invalid dealer reference.', fieldErrors: {} };
   }
 
+  const fieldErrors = validateDealerForm(f, true);
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, message: 'Please fix the highlighted fields below.', fieldErrors };
+  }
+
   await connectDB();
 
   const existing = await DealerRecord.findById(f.dealerId).lean();
@@ -341,7 +408,15 @@ export async function updateDealerAction(
     update.passwordHash = await bcrypt.hash(f.password, 10);
   }
 
-  await DealerRecord.updateOne({ _id: existing._id }, { $set: update });
+  try {
+    await DealerRecord.updateOne({ _id: existing._id }, { $set: update }, { runValidators: true });
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Failed to update dealer.',
+      fieldErrors: {},
+    };
+  }
 
   revalidatePath('/dealers');
   revalidatePath('/create-pi');

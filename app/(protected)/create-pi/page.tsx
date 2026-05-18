@@ -1,5 +1,5 @@
 import { loadDealers, loadManufacturingUnits } from '@/lib/csvData';
-import { loadPricedCatalog } from '@/lib/productCatalog';
+import { getPricedCatalog } from '@/lib/products/catalog';
 import { getDealersForPIAction } from '@/lib/dealers/server-actions';
 import PICreator from './PICreator';
 
@@ -17,7 +17,7 @@ export default async function CreatePIPage({
   if (dealers.length === 0) {
     dealers = loadDealers();
   }
-  const { products, variants } = loadPricedCatalog();
+  const { products, variants } = await getPricedCatalog();
   const manufacturingUnits     = loadManufacturingUnits();
 
   return (

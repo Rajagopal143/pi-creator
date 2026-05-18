@@ -3,7 +3,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, FilePlus2, List, LogOut, Settings } from 'lucide-react';
+import { Building2, FilePlus2, List, LogOut, Package, Settings } from 'lucide-react';
+
+import { InstallPWAButton } from '@/components/app/InstallPWAButton';
 
 import {
   Sidebar,
@@ -83,6 +85,18 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
+                    isActive={pathname === '/products' || pathname.startsWith('/products/')}
+                    tooltip="Products"
+                  >
+                    <Link href="/products">
+                      <Package />
+                      <span>Products</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
                     isActive={pathname === '/settings'}
                     tooltip="Settings"
                   >
@@ -98,6 +112,7 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
         </SidebarContent>
         <SidebarFooter className="p-2">
           <SidebarMenu>
+            <InstallPWAButton />
             <SidebarMenuItem>
               <SidebarMenuButton onClick={handleLogout} tooltip="Sign out">
                 <LogOut />
@@ -121,9 +136,13 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
                     ? 'Add New Dealer'
                     : pathname.startsWith('/dealers')
                       ? 'Dealers'
-                      : pathname === '/settings'
-                        ? 'Settings'
-                        : 'Yakuza DMS'}
+                      : pathname === '/products'
+                        ? 'Products'
+                        : pathname.startsWith('/products')
+                          ? 'Edit Product'
+                          : pathname === '/settings'
+                            ? 'Settings'
+                            : 'Yakuza DMS'}
             </span>
           </div>
         </header>

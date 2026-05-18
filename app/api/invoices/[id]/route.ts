@@ -29,13 +29,15 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json() as Record<string, unknown>;
     const now = new Date().toISOString();
-    const status = (body.status as string) || 'Approved';
     const statusDescription = (body.statusDescription as string) || 'Invoice updated';
 
     const invoice = await Invoice.findById(id);
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
+
+    // Editing a PI keeps its current status — only an explicit body.status changes it.
+    const status = (body.status as string) || invoice.status || 'Pending';
 
     Object.assign(invoice, body);
     invoice.status = status;
@@ -49,6 +51,24 @@ export async function PUT(
     return NextResponse.json({ success: true, data: invoice });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to update invoice';
+    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const invoice = await Invoice.findByIdAndDelete(id);
+    if (!invoice) {
+      return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, message: 'Invoice deleted' });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Failed to delete invoice';
     return NextResponse.json({ success: false, message: msg }, { status: 500 });
   }
 }

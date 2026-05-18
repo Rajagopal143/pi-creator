@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import type { InvoiceCounterDTO } from '@/lib/invoiceCounterModel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -8,7 +9,6 @@ import type { InvoiceCounterDTO } from '@/lib/invoiceCounterModel';
 interface RowState extends InvoiceCounterDTO {
   saving?: boolean;
   saved?: boolean;
-  error?: string;
 }
 
 const numberInputClass =
@@ -30,13 +30,12 @@ export default function SettingsClient({
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ state: '', stateName: '', prefix: '', series: '2627', nextNumber: 1 });
   const [addSaving, setAddSaving] = useState(false);
-  const [addError, setAddError] = useState('');
 
   const patchRow = (state: string, patch: Partial<RowState>) =>
     setRows(rs => rs.map(r => (r.state === state ? { ...r, ...patch } : r)));
 
   const saveRow = async (row: RowState) => {
-    patchRow(row.state, { saving: true, saved: false, error: '' });
+    patchRow(row.state, { saving: true, saved: false });
     try {
       const res = await fetch('/api/invoice-counters', {
         method: 'PUT',
@@ -52,18 +51,16 @@ export default function SettingsClient({
       const json = (await res.json()) as { success: boolean; message?: string };
       if (!json.success) throw new Error(json.message || 'Failed to save');
       patchRow(row.state, { saving: false, saved: true });
+      toast.success(`${row.state} series saved.`);
       setTimeout(() => patchRow(row.state, { saved: false }), 2500);
     } catch (err: unknown) {
-      patchRow(row.state, {
-        saving: false,
-        error: err instanceof Error ? err.message : 'Failed to save',
-      });
+      patchRow(row.state, { saving: false });
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 
   const addState = async () => {
     setAddSaving(true);
-    setAddError('');
     try {
       const res = await fetch('/api/invoice-counters', {
         method: 'POST',
@@ -73,10 +70,11 @@ export default function SettingsClient({
       const json = (await res.json()) as { success: boolean; message?: string; data?: InvoiceCounterDTO };
       if (!json.success || !json.data) throw new Error(json.message || 'Failed to add state');
       setRows(rs => [...rs, json.data!].sort((a, b) => a.stateName.localeCompare(b.stateName)));
+      toast.success(`${json.data.state} series added.`);
       setShowAdd(false);
       setDraft({ state: '', stateName: '', prefix: '', series: '2627', nextNumber: 1 });
     } catch (err: unknown) {
-      setAddError(err instanceof Error ? err.message : 'Failed to add state');
+      toast.error(err instanceof Error ? err.message : 'Failed to add state');
     } finally {
       setAddSaving(false);
     }
@@ -160,7 +158,6 @@ export default function SettingsClient({
               </div>
 
               <div className="flex items-center justify-end gap-3 mt-4">
-                {row.error && <span className="text-xs text-red-600">{row.error}</span>}
                 {row.saved && <span className="text-xs text-green-700 font-medium">✓ Saved</span>}
                 <button
                   onClick={() => saveRow(row)}
@@ -236,9 +233,8 @@ export default function SettingsClient({
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 mt-4">
-              {addError && <span className="text-xs text-red-600">{addError}</span>}
               <button
-                onClick={() => { setShowAdd(false); setAddError(''); }}
+                onClick={() => setShowAdd(false)}
                 className="text-sm text-gray-600 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
               >
                 Cancel

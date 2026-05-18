@@ -2,12 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { Download } from 'lucide-react';
 import InvoicePreview from '@/app/(protected)/create-pi/InvoicePreview';
 import type { InvoicePreviewProps } from '@/app/(protected)/create-pi/InvoicePreview';
 import { PI_STATUSES } from '@/lib/invoiceStatus';
 import type { SavedInvoice } from '@/lib/invoiceModel';
 import type { ManufacturingUnit } from '@/lib/csvData';
 import { Button } from '@/components/ui/button';
+import { InvoiceFiltersDrawer } from './InvoiceFiltersDrawer';
+import {
+  InvoiceFilterControls,
+  EMPTY_FILTERS,
+  type InvoiceFilters,
+} from './InvoiceFilterControls';
+import { downloadInvoicesExcel } from './invoiceExport';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,22 +64,19 @@ function invoiceToPreviewProps(inv: SavedInvoice): InvoicePreviewProps {
     totalAccessory:    inv.totalAccessory,
     insurance:         inv.insurance,
     insuranceEnabled:  inv.insuranceEnabled !== false,
+    roundOff:          inv.roundOff ?? 0,
     total:             inv.total,
   };
 }
 
 function statusBadgeClass(status: SavedInvoice['status']): string {
   switch (status?.toLowerCase()) {
-    case 'approved':
-      return 'bg-emerald-100 text-emerald-700';
-    case 'advance payment done':
-    case 'full payment done':
-    case 'full payment verified':
-      return 'bg-indigo-100 text-indigo-700';
-    case 'production':
+    case 'pending':
       return 'bg-amber-100 text-amber-700';
     case 'dispatched':
       return 'bg-green-100 text-green-700';
+    case 'cancelled':
+      return 'bg-red-100 text-red-700';
     default:
       return 'bg-gray-100 text-gray-700';
   }
@@ -155,15 +161,12 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [invoices, setInvoices]       = useState<SavedInvoice[]>([]);
   const [meta, setMeta]               = useState({ total: 0, page: 1, totalPages: 1, limit: DEFAULT_LIMIT });
   const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState('');
 
   const [search, setSearch]           = useState('');
-  const [taxTypeFilter, setTaxType]   = useState('');
-  const [manufacturingUnitId, setManufacturingUnitId] = useState('');
-  const [startDate, setStartDate]     = useState('');
-  const [endDate, setEndDate]         = useState('');
+  const [filters, setFilters]         = useState<InvoiceFilters>(EMPTY_FILTERS);
   const [page, setPage]               = useState(1);
   const [limit, setLimit]             = useState<number>(DEFAULT_LIMIT);
+  const [exporting, setExporting]     = useState(false);
 
   const [viewInvoice, setViewInvoice] = useState<SavedInvoice | null>(null);
   const [statusInvoice, setStatusInvoice] = useState<SavedInvoice | null>(null);
@@ -171,19 +174,26 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [statusDescription, setStatusDescription] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
+  const [deleteInvoice, setDeleteInvoice] = useState<SavedInvoice | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Builds the shared query string for both the list fetch and the export.
+  const buildParams = useCallback((extra?: Record<string, string>) => {
+    const params = new URLSearchParams();
+    if (search)                    params.set('search', search);
+    if (filters.taxType)           params.set('taxType', filters.taxType);
+    if (filters.status)            params.set('status', filters.status);
+    if (filters.manufacturingUnitId) params.set('manufacturingUnitId', filters.manufacturingUnitId);
+    if (filters.startDate)         params.set('startDate', filters.startDate);
+    if (filters.endDate)           params.set('endDate', filters.endDate);
+    Object.entries(extra ?? {}).forEach(([k, v]) => params.set(k, v));
+    return params;
+  }, [search, filters]);
+
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('limit', String(limit));
-      if (search)        params.set('search', search);
-      if (taxTypeFilter) params.set('taxType', taxTypeFilter);
-      if (manufacturingUnitId) params.set('manufacturingUnitId', manufacturingUnitId);
-      if (startDate)     params.set('startDate', startDate);
-      if (endDate)       params.set('endDate', endDate);
-
+      const params = buildParams({ page: String(page), limit: String(limit) });
       const res  = await fetch(`/api/invoices?${params.toString()}`);
       const json = await res.json() as ApiResponse;
       if (!json.success) throw new Error('Failed to load invoices');
@@ -195,27 +205,49 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
         limit: json.meta.limit,
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
+      toast.error(e instanceof Error ? e.message : 'Failed to load invoices');
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, taxTypeFilter, manufacturingUnitId, startDate, endDate]);
+  }, [buildParams, page, limit]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
-  const handleSearch = useCallback(() => { setPage(1); fetchInvoices(); }, [fetchInvoices]);
+  // Exports every invoice matching the current filters (not just this page).
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const res  = await fetch(`/api/invoices?${buildParams({ export: 'true' }).toString()}`);
+      const json = await res.json() as ApiResponse;
+      if (!json.success) throw new Error('Failed to export invoices');
+      if (json.data.length === 0) {
+        toast.warning('No invoices match the current filters to export.');
+        return;
+      }
+      downloadInvoicesExcel(json.data);
+      toast.success(`Exported ${json.data.length} invoice${json.data.length !== 1 ? 's' : ''}.`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to export invoices');
+    } finally {
+      setExporting(false);
+    }
+  }, [buildParams]);
 
-  const clearFilters = () => {
-    setSearch('');
-    setTaxType('');
-    setManufacturingUnitId('');
-    setStartDate('');
-    setEndDate('');
+  // Filter changes always reset to the first page.
+  const updateFilters = useCallback((patch: Partial<InvoiceFilters>) => {
+    setFilters(f => ({ ...f, ...patch }));
     setPage(1);
-  };
+  }, []);
 
-  const hasActiveFilters =
-    !!search || !!taxTypeFilter || !!manufacturingUnitId || !!startDate || !!endDate;
+  const clearFilters = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+    setPage(1);
+  }, []);
+
+  const activeFilterCount =
+    [filters.taxType, filters.status, filters.manufacturingUnitId, filters.startDate, filters.endDate]
+      .filter(Boolean).length;
+  const hasActiveFilters = !!search || activeFilterCount > 0;
 
   const openStatusEditor = (invoice: SavedInvoice) => {
     setStatusInvoice(invoice);
@@ -223,10 +255,28 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
     setStatusDescription(invoice.statusDescription || '');
   };
 
+  const handleDelete = async () => {
+    if (!deleteInvoice?._id) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/invoices/${String(deleteInvoice._id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json() as { success: boolean; message?: string };
+      if (!json.success) throw new Error(json.message || 'Failed to delete invoice');
+      toast.success('Invoice deleted.');
+      setDeleteInvoice(null);
+      await fetchInvoices();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete invoice');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleUpdateStatus = async () => {
     if (!statusInvoice?._id) return;
     setUpdatingStatus(true);
-    setError('');
     try {
       const res = await fetch(`/api/invoices/${String(statusInvoice._id)}`, {
         method: 'PATCH',
@@ -235,10 +285,11 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
       });
       const json = await res.json() as { success: boolean; message?: string };
       if (!json.success) throw new Error(json.message || 'Failed to update status');
+      toast.success('Status updated.');
       setStatusInvoice(null);
       await fetchInvoices();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update status');
+      toast.error(e instanceof Error ? e.message : 'Failed to update status');
     } finally {
       setUpdatingStatus(false);
     }
@@ -269,91 +320,58 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
             </select>
           </div>
         </div>
-        {/* Search & Filters */}
+        {/* Search, Filters & Export */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
-              <input
-                type="text"
-                placeholder="Invoice #, dealer name, unit…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search invoice #, dealer, unit…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              className="min-w-[180px] flex-1 md:flex-none md:w-64 border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+            />
+
+            {/* Desktop — filters shown inline next to the search */}
+            <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
+              <InvoiceFilterControls
+                manufacturingUnits={manufacturingUnits}
+                filters={filters}
+                onChange={updateFilters}
+                variant="bar"
+              />
+              {activeFilterCount > 0 && (
+                <Button type="button" variant="ghost" onClick={clearFilters}>
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            {/* Mobile — filters collapse into a drawer */}
+            <div className="md:hidden">
+              <InvoiceFiltersDrawer
+                manufacturingUnits={manufacturingUnits}
+                filters={filters}
+                onChange={updateFilters}
+                onClear={clearFilters}
+                activeCount={activeFilterCount}
               />
             </div>
 
-            {/* Tax Type */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Tax Type</label>
-              <select
-                value={taxTypeFilter}
-                onChange={e => { setTaxType(e.target.value); setPage(1); }}
-                className="border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-              >
-                <option value="">All</option>
-                <option value="within_state">Within State</option>
-                <option value="other_state">Other State</option>
-              </select>
-            </div>
-
-            {/* Manufacturing unit */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Manufacturing Unit</label>
-              <select
-                value={manufacturingUnitId}
-                onChange={e => { setManufacturingUnitId(e.target.value); setPage(1); }}
-                className="min-w-[200px] max-w-[280px] border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-              >
-                <option value="">All units</option>
-                {manufacturingUnits.map(mu => (
-                  <option key={mu.id} value={String(mu.id)}>
-                    {mu.unitName} ({mu.state})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Date range */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => { setStartDate(e.target.value); setPage(1); }}
-                className="border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => { setEndDate(e.target.value); setPage(1); }}
-                className="border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-              />
-            </div>
-
-            {/* Buttons */}
-            <Button type="button" onClick={handleSearch} className="bg-primary">
-              Search
+            <Button
+              type="button"
+              variant="outline"
+              className="ml-auto gap-2 md:ml-0"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              <Download className="size-4" />
+              {exporting ? 'Exporting…' : 'Export Excel'}
             </Button>
-            {hasActiveFilters && (
-              <Button type="button" variant="outline" onClick={clearFilters}>
-                Clear
-              </Button>
-            )}
           </div>
         </div>
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {error && (
-            <div className="px-5 py-3 bg-red-50 border-b border-red-200 text-sm text-red-700">{error}</div>
-          )}
-
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
               <thead>
@@ -452,6 +470,12 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                           >
                             Update Status
                           </button>
+                          <button
+                            onClick={() => setDeleteInvoice(inv)}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -463,14 +487,14 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
 
           {/* Pagination */}
           {meta.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50">
               <span className="text-xs text-gray-500">
                 {meta.total === 0
                   ? '0 results'
                   : `${(meta.page - 1) * meta.limit + 1}-${Math.min(meta.page * meta.limit, meta.total)} of ${meta.total}`}
                 &nbsp;·&nbsp; Page {meta.page} of {meta.totalPages}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setPage(1)}
                   disabled={page <= 1}
@@ -560,6 +584,38 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
               </Button>
               <Button type="button" onClick={handleUpdateStatus} disabled={updatingStatus}>
                 {updatingStatus ? 'Updating…' : 'Update'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteInvoice && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+          <div className="bg-white w-full max-w-md rounded-xl border border-gray-200 shadow-2xl p-5">
+            <h3 className="text-base font-semibold text-gray-900">Delete Invoice</h3>
+            <p className="text-sm text-gray-600 mt-2">
+              Permanently delete{' '}
+              <span className="font-mono font-medium text-gray-900">
+                {deleteInvoice.invoiceNumber}
+              </span>
+              ? This cannot be undone.
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              The invoice number stays consumed in its state series and will not be reused.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDeleteInvoice(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-red-700 hover:bg-red-600"
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
               </Button>
             </div>
           </div>

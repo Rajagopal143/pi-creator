@@ -1,5 +1,4 @@
 import mongoose, { Schema } from 'mongoose';
-import { PI_STATUSES } from '@/lib/invoiceStatus';
 import type { PIStatus } from '@/lib/invoiceStatus';
 
 export interface SavedAddress {
@@ -85,7 +84,13 @@ export interface SavedInvoice {
   totalIGST: number;
   totalGST: number;
   totalAccessory: number;
+  /** GST-exclusive transportation charge. */
+  transportCharge?: number;
+  /** 18% GST computed on the transportation charge. */
+  transportGST?: number;
   insurance: number;
+  /** Signed rounding adjustment applied to reach the whole-rupee total. */
+  roundOff?: number;
   total: number;
   insuranceEnabled?: boolean;
   status?: PIStatus;
@@ -116,18 +121,20 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     totalIGST: { type: Number, default: 0 },
     totalGST: { type: Number, required: true },
     totalAccessory: { type: Number, default: 0 },
+    transportCharge: { type: Number, default: 0 },
+    transportGST: { type: Number, default: 0 },
     insurance: { type: Number, default: 0 },
+    roundOff: { type: Number, default: 0 },
     total: { type: Number, required: true },
     insuranceEnabled: { type: Boolean, default: true },
-    status: {
-      type: String,
-      enum: PI_STATUSES,
-      default: 'Approved',
-    },
+    // `status` is intentionally not enum-constrained — legacy invoices hold
+    // older status values and must still re-save cleanly. The UI restricts
+    // new values to PI_STATUSES (Pending / Dispatched / Cancelled).
+    status: { type: String, default: 'Pending' },
     statusDescription: { type: String, default: 'Invoice created' },
     statusHistory: [
       {
-        status: { type: String, enum: PI_STATUSES },
+        status: { type: String },
         description: { type: String, default: '' },
         updatedAt: { type: String, required: true },
       },

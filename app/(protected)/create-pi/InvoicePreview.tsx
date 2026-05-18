@@ -75,8 +75,14 @@ export interface InvoicePreviewProps {
   totalIGST: number;
   totalGST: number;
   totalAccessory?: number;
+  /** GST-exclusive transportation charge. Optional for legacy invoices. */
+  transportCharge?: number;
+  /** 18% GST computed on the transportation charge. */
+  transportGST?: number;
   insurance: number;
   insuranceEnabled?: boolean;
+  /** Signed rounding adjustment applied to reach the whole-rupee total. */
+  roundOff?: number;
   total: number;
 }
 
@@ -122,8 +128,11 @@ export default function InvoicePreview({
   totalCGST,
   totalIGST,
   totalGST,
+  transportCharge = 0,
+  transportGST = 0,
   insurance,
   insuranceEnabled = true,
+  roundOff = 0,
   total,
 }: InvoicePreviewProps) {
   const isOtherState = taxType === 'other_state';
@@ -365,10 +374,30 @@ export default function InvoicePreview({
             <span className="text-gray-500 uppercase tracking-wide">Total GST</span>
             <span className="font-medium">{formatINR(totalGST)}</span>
           </div>
+          {transportCharge > 0 && (
+            <>
+              <div className="flex justify-between text-[10px]">
+                <span className="text-gray-500 uppercase tracking-wide">Transportation</span>
+                <span className="font-medium">{formatINR(transportCharge)}</span>
+              </div>
+              <div className="flex justify-between text-[10px]">
+                <span className="text-gray-500 uppercase tracking-wide">Transportation GST (18%)</span>
+                <span className="font-medium">{formatINR(transportGST)}</span>
+              </div>
+            </>
+          )}
           {insuranceEnabled && (
             <div className="flex justify-between text-[10px]">
               <span className="text-gray-500 uppercase tracking-wide">Insurance (@0.075%)</span>
               <span className="font-medium">{formatINR(insurance)}</span>
+            </div>
+          )}
+          {Math.abs(roundOff) > 0.0001 && (
+            <div className="flex justify-between text-[10px]">
+              <span className="text-gray-500 uppercase tracking-wide">Round Off</span>
+              <span className="font-medium">
+                {roundOff >= 0 ? '+ ' : '− '}{formatINR(Math.abs(roundOff))}
+              </span>
             </div>
           )}
           <div className="flex justify-between text-sm font-bold border-t-2 border-gray-800 pt-1.5">

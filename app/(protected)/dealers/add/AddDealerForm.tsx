@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useState, useCallback, useRef } from 'react';
+import { useActionState, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Eye, EyeOff, Trash2, Upload } from 'lucide-react';
 
 import { PageTitleBar } from '@/components/app/PageTitleBar';
@@ -44,6 +45,11 @@ export default function AddDealerForm({
     initialCreateState,
   );
   const fe = state.fieldErrors;
+
+  // A successful save redirects away; any returned message is a general error.
+  useEffect(() => {
+    if (state.message) toast.error(state.message);
+  }, [state]);
 
   const [userType, setUserType] = useState<DealerUserType>(dealer?.userType ?? 'distributor');
   const [showPassword, setShowPassword] = useState(false);
@@ -109,12 +115,6 @@ export default function AddDealerForm({
         <input type="hidden" name="logoBase64" value={logoBase64} />
         <input type="hidden" name="logoMimeType" value={logoMime} />
         <input type="hidden" name="accountType" value={accountType} />
-
-        {state.message ? (
-          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {state.message}
-          </p>
-        ) : null}
 
         {/* User type */}
         <section className="space-y-2">

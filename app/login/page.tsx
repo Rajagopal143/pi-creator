@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Suspense } from 'react';
+import { toast } from 'sonner';
 
 function LoginForm() {
   const router       = useRouter();
@@ -14,7 +15,6 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
 
   const usernameRef = useRef<HTMLInputElement>(null);
 
@@ -25,7 +25,6 @@ function LoginForm() {
     if (!username.trim() || !password) return;
 
     setLoading(true);
-    setError('');
 
     try {
       const res  = await fetch('/api/auth/login', {
@@ -38,10 +37,10 @@ function LoginForm() {
       if (json.success) {
         router.replace(from);
       } else {
-        setError(json.message || 'Invalid credentials');
+        toast.error(json.message || 'Invalid credentials');
       }
     } catch {
-      setError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -118,16 +117,6 @@ function LoginForm() {
                 </button>
               </div>
             </div>
-
-            {/* Error */}
-            {error && (
-              <div className="flex items-center gap-2 bg-red-900/40 border border-red-700/50 rounded-lg px-3.5 py-2.5">
-                <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-xs text-red-300">{error}</span>
-              </div>
-            )}
 
             {/* Submit */}
             <button

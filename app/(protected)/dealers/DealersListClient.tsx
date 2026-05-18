@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { USER_TYPE_LABELS, type DealerUserType } from '@/lib/dealers/referenceData';
@@ -19,14 +20,12 @@ export default function DealersListClient() {
   const [dealers, setDealers] = useState<DealerListRow[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 1 });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
 
   const load = useCallback(async (p: number, q: string) => {
     setLoading(true);
-    setError('');
     try {
       const params = new URLSearchParams();
       params.set('page', String(p));
@@ -43,7 +42,7 @@ export default function DealersListClient() {
         totalPages: json.meta.totalPages,
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
+      toast.error(e instanceof Error ? e.message : 'Failed to load dealers');
     } finally {
       setLoading(false);
     }
@@ -108,11 +107,6 @@ export default function DealersListClient() {
       </p>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {error ? (
-          <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>

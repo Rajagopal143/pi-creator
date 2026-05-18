@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json() as Record<string, unknown>;
     const now = new Date().toISOString();
-    const status = (body.status as string) || 'Approved';
+    const status = (body.status as string) || 'Pending';
     const statusDescription = (body.statusDescription as string) || 'Invoice created';
 
     // The invoice number is assigned server-side from the per-state counter so
@@ -95,10 +95,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // `export=true` returns every matching invoice (capped) for a spreadsheet
+    // download — it ignores pagination so the export reflects all filtered rows.
+    const isExport = searchParams.get('export') === 'true';
+    const EXPORT_CAP = 5000;
+
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') || 20)));
     const search = searchParams.get('search') || '';
     const taxType = searchParams.get('taxType') || '';
+    const status = searchParams.get('status') || '';
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || '';
     const manufacturingUnitId = searchParams.get('manufacturingUnitId') || '';
@@ -119,6 +125,12 @@ export async function GET(req: NextRequest) {
       ];
     }
     if (taxType) query.taxType = taxType;
+    // "Pending" is a bucket for any invoice not yet dispatched or cancelled.
+    if (status === 'Pending') {
+      query.status = { $nin: ['Dispatched', 'Cancelled'] };
+    } else if (status) {
+      query.status = status;
+    }
     if (startDate || endDate) {
       const dateFilter: Record<string, string> = {};
       if (startDate) dateFilter.$gte = startDate;
@@ -127,6 +139,19 @@ export async function GET(req: NextRequest) {
     }
 
     const total = await Invoice.countDocuments(query);
+
+    if (isExport) {
+      const invoices = await Invoice.find(query)
+        .sort({ createdAt: -1 })
+        .limit(EXPORT_CAP)
+        .lean();
+      return NextResponse.json({
+        success: true,
+        data: invoices,
+        meta: { total: invoices.length, page: 1, limit: invoices.length, totalPages: 1 },
+      });
+    }
+
     const invoices = await Invoice.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
