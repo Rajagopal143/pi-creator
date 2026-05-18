@@ -6,13 +6,15 @@ import type { TaxType } from '../types';
 /** "Manufacturing Unit & Tax Type" card. */
 export function ManufacturingTaxCard({
   manufacturingUnits, selectedMU, onSelectMU,
-  taxType, onTaxTypeChange,
+  taxType, onTaxTypeChange, taxTypeLocked = false,
 }: {
   manufacturingUnits: ManufacturingUnit[];
   selectedMU: ManufacturingUnit | null;
   onSelectMU: (mu: ManufacturingUnit | null) => void;
   taxType: TaxType;
   onTaxTypeChange: (t: TaxType) => void;
+  /** When true the tax type is fixed by the MU/dealer states — toggle disabled. */
+  taxTypeLocked?: boolean;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -49,10 +51,11 @@ export function ManufacturingTaxCard({
           <div className="flex gap-2">
             <button
               onClick={() => onTaxTypeChange('within_state')}
-              className={`flex-1 py-2 px-3 text-sm rounded-lg border font-medium transition-colors ${
+              disabled={taxTypeLocked}
+              className={`flex-1 py-2 px-3 text-sm rounded-lg border font-medium transition-colors disabled:cursor-not-allowed ${
                 taxType === 'within_state'
                   ? 'bg-green-600 text-white border-green-600'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-green-400 disabled:opacity-40 disabled:hover:border-gray-300'
               }`}
             >
               Within State
@@ -60,16 +63,22 @@ export function ManufacturingTaxCard({
             </button>
             <button
               onClick={() => onTaxTypeChange('other_state')}
-              className={`flex-1 py-2 px-3 text-sm rounded-lg border font-medium transition-colors ${
+              disabled={taxTypeLocked}
+              className={`flex-1 py-2 px-3 text-sm rounded-lg border font-medium transition-colors disabled:cursor-not-allowed ${
                 taxType === 'other_state'
                   ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 disabled:opacity-40 disabled:hover:border-gray-300'
               }`}
             >
               Other State
               <span className="block text-[10px] font-normal opacity-80">IGST</span>
             </button>
           </div>
+          {taxTypeLocked && (
+            <p className="mt-1.5 text-[10px] text-gray-400">
+              Auto-set from the manufacturing unit &amp; dealer states.
+            </p>
+          )}
         </div>
       </div>
     </div>

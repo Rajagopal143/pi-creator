@@ -43,6 +43,7 @@ export default function PICreator(props: PICreatorInput) {
           onSelectMU={pi.setSelectedMU}
           taxType={pi.taxType}
           onTaxTypeChange={pi.setTaxType}
+          taxTypeLocked={pi.taxTypeLocked}
         />
 
         <PartiesCard
@@ -95,7 +96,32 @@ export default function PICreator(props: PICreatorInput) {
         />
 
         {/* Confirm button (bottom) */}
-        <div className="flex justify-end pb-6">
+        <div className="flex flex-wrap items-center justify-end gap-3 pb-6">
+          {pi.saved ? (
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 text-base font-semibold px-6 py-3 rounded-xl cursor-default"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Invoice Saved
+            </button>
+          ) : pi.editInvoiceId ? (
+            // Editing a PI is saved from here — the preview popup has no Save.
+            <button
+              type="button"
+              onClick={pi.handleSave}
+              disabled={!pi.canConfirm || pi.saving}
+              className="flex items-center gap-2 bg-white text-red-700 border border-red-300 text-base font-semibold px-6 py-3 rounded-xl hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              {pi.saving ? 'Saving…' : 'Save PI Update'}
+            </button>
+          ) : null}
           <button
             onClick={pi.handleOpenModal}
             disabled={!pi.canConfirm}
@@ -125,6 +151,7 @@ export default function PICreator(props: PICreatorInput) {
         onPrint={pi.handlePrint}
         saving={pi.saving}
         saved={pi.saved}
+        showSave={!pi.editInvoiceId}
         previewProps={pi.previewProps}
       />
     </div>

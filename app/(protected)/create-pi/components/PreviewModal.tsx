@@ -6,7 +6,7 @@ import type { InvoicePreviewProps } from '../InvoicePreview';
 
 /** Full-screen modal showing the invoice preview with print/save actions. */
 export function PreviewModal({
-  open, onClose, onSave, onPrint, saving, saved, previewProps,
+  open, onClose, onSave, onPrint, saving, saved, showSave, previewProps,
 }: {
   open: boolean;
   onClose: () => void;
@@ -14,6 +14,8 @@ export function PreviewModal({
   onPrint: () => void;
   saving: boolean;
   saved: boolean;
+  /** Whether the Save action is offered here — hidden when editing a PI. */
+  showSave: boolean;
   previewProps: InvoicePreviewProps;
 }) {
   useEffect(() => {
@@ -44,7 +46,8 @@ export function PreviewModal({
               </svg>
               Print
             </button>
-            {saved ? (
+            {/* Editing a PI offers no Save here — it is saved from the form. */}
+            {showSave && (saved ? (
               <span className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
                 ✓ Saved
               </span>
@@ -71,7 +74,7 @@ export function PreviewModal({
                   </>
                 )}
               </button>
-            )}
+            ))}
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"

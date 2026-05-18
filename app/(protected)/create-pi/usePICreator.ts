@@ -47,6 +47,21 @@ export function usePICreator({
   const [lineItems, setLineItems] = useState<LineItemState[]>([
     { id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' },
   ]);
+
+  // When both the manufacturing unit and the Bill To dealer are chosen, the tax
+  // type is fixed by their states — same state → SGST+CGST, different → IGST.
+  const autoTaxType = useMemo<TaxType | null>(() => {
+    if (!selectedMU || !billToDealer) return null;
+    const norm = (s: string) => s.trim().toLowerCase();
+    const muState = norm(selectedMU.state || '');
+    const dealerState = norm(billToDealer.state || billToDealer.billingAddress?.state || '');
+    if (!muState || !dealerState) return null;
+    return muState === dealerState ? 'within_state' : 'other_state';
+  }, [selectedMU, billToDealer]);
+  /** The tax type actually applied — auto-derived from states when both are set. */
+  const effectiveTaxType: TaxType = autoTaxType ?? taxType;
+  /** True once states drive the tax type — the manual toggle is then locked. */
+  const taxTypeLocked = autoTaxType !== null;
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState(addDaysISO(todayISO(), DUE_DATE_OFFSET_DAYS));
   const [seqNumber, setSeqNumber] = useState('');
@@ -166,13 +181,13 @@ export function usePICreator({
       // Product GST applies to the product value only; the accessory's own 5%
       // GST is split into SGST/CGST (within state) or IGST (other state) so it
       // rolls into the total GST.
-      const sgstAmount = taxType === 'within_state'
+      const sgstAmount = effectiveTaxType === 'within_state'
         ? (productTaxable * sgstPct) / 100 + accessoryGst / 2
         : 0;
-      const cgstAmount = taxType === 'within_state'
+      const cgstAmount = effectiveTaxType === 'within_state'
         ? (productTaxable * cgstPct) / 100 + accessoryGst / 2
         : 0;
-      const igstAmount = taxType === 'other_state'
+      const igstAmount = effectiveTaxType === 'other_state'
         ? (productTaxable * igstPct) / 100 + accessoryGst
         : 0;
 
@@ -196,7 +211,7 @@ export function usePICreator({
         totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount,
       };
     });
-  }, [lineItems, products, variants, priceTier, taxType]);
+  }, [lineItems, products, variants, priceTier, effectiveTaxType]);
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const subTotal       = useMemo(() => computedItems.reduce((s, i) => s + i.taxableAmount, 0), [computedItems]);
@@ -302,8 +317,9 @@ export function usePICreator({
   }, []);
 
   // ── Preview modal ──────────────────────────────────────────────────────────
+  // `saved` is intentionally NOT reset here — once an invoice is saved it stays
+  // saved, so the Save action can only run once (no duplicate invoices).
   const handleOpenModal = useCallback(() => {
-    setSaved(false);
     setShowModal(true);
   }, []);
 
@@ -328,7 +344,7 @@ export function usePICreator({
         dealer: effectiveBillTo,
         shipToDealer: effectiveShipTo,
         lineItems: computedItems,
-        taxType,
+        taxType: effectiveTaxType,
         subTotal,
         discount,
         totalSGST,
@@ -369,7 +385,7 @@ export function usePICreator({
     }
   }, [
     effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
-    computedItems, taxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
+    computedItems, effectiveTaxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
     totalGST, totalAccessory, transportCharge, transportGST, insurance, insuranceEnabled,
     roundOff, total, fetchCounters, editInvoiceId,
   ]);
@@ -383,7 +399,7 @@ export function usePICreator({
     dealer: effectiveBillTo,
     shipToDealer: effectiveShipTo,
     items: computedItems,
-    taxType,
+    taxType: effectiveTaxType,
     subTotal,
     discount,
     totalSGST,
@@ -408,7 +424,7 @@ export function usePICreator({
     // invoice meta
     invoiceNumber, assignedNumber, selectedMU, setSelectedMU,
     invoiceDate, setInvoiceDate, dueDate, setDueDate,
-    taxType, setTaxType, priceTier, setPriceTier,
+    taxType: effectiveTaxType, setTaxType, taxTypeLocked, priceTier, setPriceTier,
     // parties
     billTo: {
       search: billToSearch, dealer: billToDealer, addr: billToAddr,

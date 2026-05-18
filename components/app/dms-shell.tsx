@@ -50,11 +50,11 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === '/create-pi'}
-                    tooltip="Create Invoice"
+                    tooltip="Create Proforma Invoice"
                   >
                     <Link href="/create-pi">
                       <FilePlus2 />
-                      <span>Create Invoice</span>
+                      <span>Create Proforma Invoice</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -129,7 +129,7 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-foreground">
               {pathname === '/create-pi'
-                ? 'Create Purchase Order Invoice'
+                ? 'Create Proforma Invoice'
                 : pathname === '/invoices'
                   ? 'All Invoices'
                   : pathname === '/dealers/add'

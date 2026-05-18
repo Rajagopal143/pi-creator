@@ -4,7 +4,7 @@ import { getDealersForPIAction } from '@/lib/dealers/server-actions';
 import PICreator from './PICreator';
 
 export const metadata = {
-  title: 'Create Purchase Order Invoice — Yakuza DMS',
+  title: 'Create Proforma Invoice — Yakuza DMS',
 };
 
 export default async function CreatePIPage({

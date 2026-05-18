@@ -21,6 +21,8 @@ export function LineItemsCard({
   onRemoveItem: (id: string) => void;
   onAddItem: () => void;
 }) {
+  const totalQty = items.reduce((sum, i) => sum + (i.qty || 0), 0);
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="mb-4 pb-2 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
@@ -69,15 +71,20 @@ export function LineItemsCard({
           </tbody>
         </table>
       </div>
-      <button
-        onClick={onAddItem}
-        className="mt-3 flex items-center gap-1.5 text-sm text-red-700 hover:text-red-800 font-medium transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        Add Item
-      </button>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={onAddItem}
+          className="flex items-center gap-1.5 text-sm text-red-700 hover:text-red-800 font-medium transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Item
+        </button>
+        <span className="text-sm text-gray-500">
+          Total Qty: <span className="font-semibold text-gray-900">{totalQty}</span>
+        </span>
+      </div>
     </div>
   );
 }
