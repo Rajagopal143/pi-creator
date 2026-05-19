@@ -25,7 +25,7 @@ export default function PICreator(props: PICreatorInput) {
       </div>
 
       {/* ── Form ── */}
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-5 print:hidden">
+      <div className=" mx-auto px-3 py-6 space-y-5 print:hidden">
 
         <InvoiceDetailsCard
           invoiceNumber={pi.invoiceNumber}

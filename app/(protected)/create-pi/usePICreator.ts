@@ -45,7 +45,7 @@ export function usePICreator({
   );
   const [taxType, setTaxType] = useState<TaxType>('within_state');
   const [lineItems, setLineItems] = useState<LineItemState[]>([
-    { id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' },
+    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none' },
   ]);
 
   // When both the manufacturing unit and the Bill To dealer are chosen, the tax
@@ -129,7 +129,7 @@ export function usePICreator({
                 qty: item.qty,
                 accessory: (item.accessory as AccessoryType) || 'none',
               }))
-            : [{ id: 'item-1', productId: null, variantId: null, qty: 1, accessory: 'none' }],
+            : [{ id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none' }],
         );
         const loadedInvoiceDate = (invoice.invoiceDate as string) || todayISO();
         setInvoiceDate(loadedInvoiceDate);
@@ -269,7 +269,7 @@ export function usePICreator({
   const addLineItem = useCallback(() => {
     setLineItems(prev => [
       ...prev,
-      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 1, accessory: 'none' },
+      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 0, accessory: 'none' },
     ]);
   }, []);
 
@@ -378,6 +378,10 @@ export function usePICreator({
       setSaved(true);
       toast.success(editInvoiceId ? 'Invoice updated.' : 'Invoice saved.');
       await fetchCounters();
+      // A newly created invoice reloads a fresh create-pi form to start the next one.
+      if (!editInvoiceId) {
+        setTimeout(() => { window.location.href = '/create-pi'; }, 1000);
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to save invoice');
     } finally {

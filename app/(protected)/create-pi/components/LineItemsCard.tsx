@@ -5,7 +5,10 @@ import type { ComputedLineItem, LineItemState, PriceTier } from '../types';
 import { PRICE_TIERS } from '../constants';
 import { LineItemRow } from './LineItemRow';
 
-const HEADERS = ['#', 'Model', 'Variant', 'Accessory', 'Qty', 'Rate (incl. GST)', 'Line Total', ''];
+const HEADERS = [
+  '#', 'Model', 'Variant', 'Accessory', 'Qty',
+  'Unit Rate', 'Rate (incl. GST)', 'Line Total',
+];
 
 /** "Line Items" card — price-tier selector plus the editable items table. */
 export function LineItemsCard({
@@ -45,7 +48,7 @@ export function LineItemsCard({
         Change the dropdown to re-price every product line.
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px]">
+        <table className="w-full ">
           <thead>
             <tr className="border-b-2 border-gray-200">
               {HEADERS.map(h => (

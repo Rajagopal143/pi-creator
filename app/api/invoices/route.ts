@@ -152,10 +152,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Sort by `_id` desc — ObjectIds are monotonic with insertion, so the most
-    // recently created (last) invoice reliably appears first in the list.
+    // List invoices by invoice date, oldest to newest (`_id` breaks ties).
     const invoices = await Invoice.find(query)
-      .sort({ _id: -1 })
+      .sort({ invoiceDate: 1, _id: 1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();

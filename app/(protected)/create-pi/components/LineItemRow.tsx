@@ -74,11 +74,17 @@ export function LineItemRow({
       <td className="py-2 px-2 w-20">
         <input
           type="number"
-          min={1}
-          value={item.qty}
-          onChange={e => onUpdate(item.id, { qty: Math.max(1, Number(e.target.value) || 1) })}
+          min={0}
+          // Qty may be left blank — 0 shows as an empty field rather than forcing 1.
+          value={item.qty || ''}
+          onChange={e => onUpdate(item.id, { qty: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+          // Blur on wheel so scrolling over a focused field never changes the qty.
+          onWheel={e => e.currentTarget.blur()}
           className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
         />
+      </td>
+      <td className="py-2 px-2 text-right text-sm text-gray-700 w-28 whitespace-nowrap">
+        {item.displayRate > 0 ? formatINR(item.displayRate) : '—'}
       </td>
       <td className="py-2 px-2 text-right text-sm text-gray-700 w-28 whitespace-nowrap">
         {item.displayRateWithGst > 0 ? formatINR(item.displayRateWithGst) : '—'}
