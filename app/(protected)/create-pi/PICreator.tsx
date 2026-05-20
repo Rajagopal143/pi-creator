@@ -95,8 +95,23 @@ export default function PICreator(props: PICreatorInput) {
           onInsuranceToggle={pi.setInsuranceEnabled}
         />
 
-        {/* Confirm button (bottom) */}
+        {/* Action row (bottom): Preview · Save · Print */}
         <div className="flex flex-wrap items-center justify-end gap-3 pb-6">
+          {/* Preview — opens the modal. Available once the form is fillable. */}
+          <button
+            type="button"
+            onClick={pi.handleOpenModal}
+            disabled={!pi.canConfirm}
+            className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 text-base font-semibold px-6 py-3 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Preview
+          </button>
+
+          {/* Save — disabled once saved. Press Esc on a saved PI to start fresh. */}
           {pi.saved ? (
             <button
               type="button"
@@ -108,29 +123,31 @@ export default function PICreator(props: PICreatorInput) {
               </svg>
               Invoice Saved
             </button>
-          ) : pi.editInvoiceId ? (
-            // Editing a PI is saved from here — the preview popup has no Save.
+          ) : (
             <button
               type="button"
               onClick={pi.handleSave}
               disabled={!pi.canConfirm || pi.saving}
-              className="flex items-center gap-2 bg-white text-red-700 border border-red-300 text-base font-semibold px-6 py-3 rounded-xl hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 bg-red-700 text-white text-base font-semibold px-8 py-3 rounded-xl hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
-              {pi.saving ? 'Saving…' : 'Save PI Update'}
+              {pi.saving ? 'Saving…' : pi.editInvoiceId ? 'Save PI Update' : 'Save Invoice'}
             </button>
-          ) : null}
+          )}
+
+          {/* Print — available only after the invoice is saved. */}
           <button
-            onClick={pi.handleOpenModal}
-            disabled={!pi.canConfirm}
-            className="flex items-center gap-2 bg-red-700 text-white text-base font-semibold px-8 py-3 rounded-xl hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md"
+            type="button"
+            onClick={pi.handlePrint}
+            disabled={!pi.saved}
+            className="flex items-center gap-2 bg-gray-900 text-white text-base font-semibold px-6 py-3 rounded-xl hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
-            {pi.editInvoiceId ? 'Preview & Confirm PI Update' : 'Preview & Confirm Invoice'}
+            Print
           </button>
         </div>
       </div>
@@ -143,15 +160,11 @@ export default function PICreator(props: PICreatorInput) {
         </div>
       )}
 
-      {/* ── Preview Modal ── */}
+      {/* ── Preview Modal (read-only — Save & Print live on the page) ── */}
       <PreviewModal
         open={pi.showModal}
         onClose={pi.handleCloseModal}
-        onSave={pi.handleSave}
-        onPrint={pi.handlePrint}
-        saving={pi.saving}
         saved={pi.saved}
-        showSave={!pi.editInvoiceId}
         previewProps={pi.previewProps}
       />
     </div>

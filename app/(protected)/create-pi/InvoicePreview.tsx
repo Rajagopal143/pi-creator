@@ -63,6 +63,8 @@ export interface PreviewLineItem {
 
 export interface InvoicePreviewProps {
   invoiceNumber: string;
+  /** When true the invoice-number field is masked — the number is only revealed after save. */
+  hideInvoiceNumber?: boolean;
   invoiceDate: string;
   dueDate: string;
   manufacturingUnit: PreviewManufacturingUnit | null;
@@ -119,6 +121,7 @@ function formatAddr(addr: PreviewAddress | undefined | null): string {
 
 export default function InvoicePreview({
   invoiceNumber,
+  hideInvoiceNumber = false,
   invoiceDate,
   dueDate,
   manufacturingUnit,
@@ -194,7 +197,11 @@ export default function InvoicePreview({
       <div className="flex flex-wrap gap-6 px-5 py-3 border-b border-gray-200 bg-gray-50 text-[10px]">
         <div>
           <div className="text-gray-400 uppercase font-semibold tracking-wide text-[9px]">Invoice #</div>
-          <div className="font-semibold text-gray-900 mt-0.5">{invoiceNumber}</div>
+          <div className="font-semibold text-gray-900 mt-0.5">
+            {hideInvoiceNumber
+              ? <span className="italic font-normal text-gray-400">(assigned on save)</span>
+              : invoiceNumber}
+          </div>
         </div>
         <div>
           <div className="text-gray-400 uppercase font-semibold tracking-wide text-[9px]">Date</div>

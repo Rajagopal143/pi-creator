@@ -94,6 +94,17 @@ export function usePICreator({
     void fetchCounters();
   }, [fetchCounters]);
 
+  // After saving, pressing Escape (with the preview modal closed) loads a fresh
+  // PI creator page. The modal owns its own Escape handler for closing itself.
+  useEffect(() => {
+    if (!saved || showModal) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') window.location.href = '/create-pi';
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [saved, showModal]);
+
   // ── Load an existing invoice when editing ──────────────────────────────────
   useEffect(() => {
     if (!editInvoiceId) return;
@@ -378,10 +389,6 @@ export function usePICreator({
       setSaved(true);
       toast.success(editInvoiceId ? 'Invoice updated.' : 'Invoice saved.');
       await fetchCounters();
-      // A newly created invoice reloads a fresh create-pi form to start the next one.
-      if (!editInvoiceId) {
-        setTimeout(() => { window.location.href = '/create-pi'; }, 1000);
-      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to save invoice');
     } finally {
@@ -397,6 +404,8 @@ export function usePICreator({
   // ── Preview props ──────────────────────────────────────────────────────────
   const previewProps: InvoicePreviewProps = {
     invoiceNumber,
+    // The invoice number is only revealed in the preview after the PI is saved.
+    hideInvoiceNumber: !saved,
     invoiceDate,
     dueDate,
     manufacturingUnit: selectedMU,

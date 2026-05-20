@@ -36,7 +36,7 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <Sidebar collapsible="icon" className="border-r border-sidebar-border print:hidden">
         <SidebarHeader className="gap-3 p-2">
             <Image src="/logo.svg" alt="" width={100} height={100} className="shrink-0 size-10 w-full" />
         </SidebarHeader>
@@ -123,8 +123,8 @@ export function DmsShell({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-      <SidebarInset className="min-h-svh">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-4">
+      <SidebarInset className="min-h-svh print:min-h-0">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-4 print:hidden">
           <SidebarTrigger />
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-foreground">

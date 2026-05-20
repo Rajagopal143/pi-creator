@@ -128,3 +128,14 @@
     @apply font-sans;
   }
 }
+
+/* Print: hide the app shell so only the invoice prints, full-page-width. The
+   shadcn sidebar outer wrapper also reserves a gap div, so `display: none` on
+   the outer slot is what actually removes the empty space on the printed page. */
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"] {
+    display: none !important;
+  }
+}
