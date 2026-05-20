@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Download } from 'lucide-react';
+import { Download, MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import InvoicePreview from '@/app/(protected)/create-pi/InvoicePreview';
 import type { InvoicePreviewProps } from '@/app/(protected)/create-pi/InvoicePreview';
 import { PI_STATUSES } from '@/lib/invoiceStatus';
@@ -376,7 +383,7 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50">
-                  {['Invoice #', 'Date', 'Dealer', 'MFG Unit', 'Status', 'Items', 'Total', 'Saved On', 'Actions'].map(h => (
+                  {['Invoice #', 'Date', 'Bill To', 'Ship To', 'MFG Unit', 'Status', 'Items', 'Total', 'Saved On', 'Actions'].map(h => (
                     <th
                       key={h}
                       className="text-[10px] uppercase text-gray-500 font-semibold text-left px-4 py-3 tracking-wide"
@@ -426,7 +433,19 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-900">
                         <div className="font-medium">{inv.dealer?.orgName || '—'}</div>
-                        <div className="text-gray-400 text-[10px]">{inv.dealer?.dealerId}</div>
+                        {inv.dealer?.dealerId && (
+                          <div className="text-gray-400 text-[10px]">{inv.dealer.dealerId}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-900">
+                        <div className="font-medium">
+                          {inv.shipToDealer?.orgName || inv.dealer?.orgName || '—'}
+                        </div>
+                        {(inv.shipToDealer?.dealerId || inv.dealer?.dealerId) && (
+                          <div className="text-gray-400 text-[10px]">
+                            {inv.shipToDealer?.dealerId || inv.dealer?.dealerId}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-700">
                         <div>{inv.manufacturingUnit?.unitName || '—'}</div>
@@ -451,32 +470,37 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                         {formatDateTime(inv.createdAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            onClick={() => setViewInvoice(inv)}
-                            className="text-xs text-red-700 hover:text-red-800 font-medium border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
-                          >
-                            View
-                          </button>
-                          <Link
-                            href={`/create-pi?invoiceId=${String(inv._id || '')}`}
-                            className="text-xs text-blue-700 hover:text-blue-800 font-medium border border-blue-200 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
-                          >
-                            Edit PI
-                          </Link>
-                          <button
-                            onClick={() => openStatusEditor(inv)}
-                            className="text-xs text-amber-700 hover:text-amber-800 font-medium border border-amber-200 px-3 py-1 rounded-lg hover:bg-amber-50 transition-colors whitespace-nowrap"
-                          >
-                            Update Status
-                          </button>
-                          <button
-                            onClick={() => setDeleteInvoice(inv)}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Invoice actions"
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                              <MoreVertical className="size-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewInvoice(inv)}>
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/create-pi?invoiceId=${String(inv._id || '')}`}>
+                                Edit PI
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openStatusEditor(inv)}>
+                              Update Status
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteInvoice(inv)}
+                              className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))

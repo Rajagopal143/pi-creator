@@ -34,8 +34,8 @@ function csvCell(value: string | number): string {
 export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
   const rows: (string | number)[][] = [[...COLUMNS]];
 
-  // The list arrives newest-first; the export is reversed to read oldest-first.
-  const ordered = [...invoices].reverse();
+  // The export API already returns invoices in oldest-first chronological order.
+  const ordered = invoices;
 
   ordered.forEach((inv, invIndex) => {
     const items = inv.lineItems ?? [];

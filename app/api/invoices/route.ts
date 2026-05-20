@@ -95,10 +95,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // `export=true` returns every matching invoice (capped) for a spreadsheet
-    // download — it ignores pagination so the export reflects all filtered rows.
+    // `export=true` returns every matching invoice for a spreadsheet download —
+    // it ignores pagination so the file contains all filtered rows across pages.
     const isExport = searchParams.get('export') === 'true';
-    const EXPORT_CAP = 5000;
 
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') || 20)));
@@ -141,9 +140,9 @@ export async function GET(req: NextRequest) {
     const total = await Invoice.countDocuments(query);
 
     if (isExport) {
+      // No `.limit()` — return every invoice matching the filters across all pages.
       const invoices = await Invoice.find(query)
-        .sort({ createdAt: -1 })
-        .limit(EXPORT_CAP)
+        .sort({ invoiceDate: 1, _id: 1 })
         .lean();
       return NextResponse.json({
         success: true,
