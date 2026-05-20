@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import { Invoice } from '@/lib/invoiceModel';
 import {
@@ -6,34 +7,6 @@ import {
   ensureCountersSeeded,
   formatInvoiceNumber,
 } from '@/lib/invoiceCounterModel';
-
-/**
- * Atomically reserves the next invoice number for the given state's counter.
- * `$inc` with `new: false` returns the counter as it was *before* the bump,
- * so its `nextNumber` is exactly the number to use — concurrency-safe.
- */
-async function reserveInvoiceNumber(state: string): Promise<{ invoiceNumber: string; seqNumber: string } | null> {
-  if (!state) return null;
-  let counter = await InvoiceCounter.findOneAndUpdate(
-    { state },
-    { $inc: { nextNumber: 1 } },
-    { new: false },
-  );
-  if (!counter) {
-    // Unknown state — create a counter on the fly, then reserve from it.
-    await InvoiceCounter.create({
-      state, stateName: state, prefix: `${state}-PI`, series: '2627', nextNumber: 1,
-    });
-    counter = await InvoiceCounter.findOneAndUpdate(
-      { state },
-      { $inc: { nextNumber: 1 } },
-      { new: false },
-    );
-  }
-  if (!counter) return null;
-  const used = counter.nextNumber;
-  return { invoiceNumber: formatInvoiceNumber(counter, used), seqNumber: String(used) };
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,25 +16,73 @@ export async function POST(req: NextRequest) {
     const status = (body.status as string) || 'Pending';
     const statusDescription = (body.statusDescription as string) || 'Invoice created';
 
-    // The invoice number is assigned server-side from the per-state counter so
-    // it is sequential and collision-free, regardless of the client preview.
-    await ensureCountersSeeded();
     const muState = String(
       (body.manufacturingUnit as { state?: string } | undefined)?.state || '',
     ).toUpperCase().trim();
-    const reserved = await reserveInvoiceNumber(muState);
-    if (reserved) {
-      body.invoiceNumber = reserved.invoiceNumber;
-      body.seqNumber = reserved.seqNumber;
+    if (!muState) {
+      return NextResponse.json(
+        { success: false, message: 'Manufacturing unit state is required to assign an invoice number.' },
+        { status: 400 },
+      );
     }
 
-    const invoice = await Invoice.create(body);
-    if (!invoice.statusHistory || invoice.statusHistory.length === 0) {
-      invoice.status = status;
-      invoice.statusDescription = statusDescription;
-      invoice.statusHistory = [{ status, description: statusDescription, updatedAt: now }];
-      await invoice.save();
+    // Make sure default counters exist, and that *this* state has a counter doc
+    // ready (covers unknown states). Both are idempotent.
+    await ensureCountersSeeded();
+    await InvoiceCounter.updateOne(
+      { state: muState },
+      {
+        $setOnInsert: {
+          state: muState, stateName: muState, prefix: `${muState}-PI`,
+          series: '2627', nextNumber: 1,
+        },
+      },
+      { upsert: true },
+    );
+
+    // Stamp status onto the body so the create is a single atomic insert —
+    // no follow-up save() needed.
+    if (!body.statusHistory || (Array.isArray(body.statusHistory) && body.statusHistory.length === 0)) {
+      body.status = status;
+      body.statusDescription = statusDescription;
+      body.statusHistory = [{ status, description: statusDescription, updatedAt: now }];
     }
+
+    /**
+     * Run the counter reservation and the invoice insert inside a single
+     * MongoDB transaction:
+     *
+     *   • `findOneAndUpdate` with `$inc` is atomic at the document level, so
+     *     two concurrent submissions can never read the same `nextNumber` —
+     *     one transaction wins, the other is retried by `withTransaction`
+     *     (which automatically handles transient WriteConflict errors).
+     *   • Both writes commit together: if `Invoice.create` fails for any
+     *     reason, the counter increment is rolled back, so the series never
+     *     advances without producing an invoice (no gaps, no duplicate IDs).
+     */
+    const session = await mongoose.startSession();
+    let invoice: mongoose.Document | undefined;
+    try {
+      await session.withTransaction(async () => {
+        const counter = await InvoiceCounter.findOneAndUpdate(
+          { state: muState },
+          { $inc: { nextNumber: 1 } },
+          { new: false, session },
+        );
+        if (!counter) {
+          throw new Error(`No invoice counter found for state ${muState}.`);
+        }
+        const used = counter.nextNumber;
+        body.invoiceNumber = formatInvoiceNumber(counter, used);
+        body.seqNumber = String(used);
+
+        const docs = await Invoice.create([body], { session });
+        invoice = docs[0];
+      });
+    } finally {
+      await session.endSession();
+    }
+
     return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to save invoice';
