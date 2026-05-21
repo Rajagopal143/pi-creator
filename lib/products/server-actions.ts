@@ -7,7 +7,9 @@ import { connectDB } from '@/lib/mongodb';
 import {
   ProductRecord,
   ensureProductsSeeded,
+  nextProductCode,
   productToDTO,
+  DEFAULT_COLOURS,
   type ProductDTO,
   type ProductVariantSub,
   type TierPrices,
@@ -64,6 +66,51 @@ function parseVariants(raw: FormDataEntryValue | null): ProductVariantSub[] {
 }
 
 // ─── Mutations ──────────────────────────────────────────────────────────────────
+
+/**
+ * Creates a brand-new product. Auto-assigns the next numeric `code` (used by
+ * the PI-creator catalog) and revalidates everywhere the catalog is read so
+ * the new model shows up immediately (Products list, PI creator, Stock pages).
+ */
+export async function createProductAction(
+  _prev: ProductFormState,
+  formData: FormData,
+): Promise<ProductFormState> {
+  const name = String(formData.get('name') || '').trim();
+  const hsn = String(formData.get('hsn') || '').trim();
+  if (!name) return { ok: false, message: 'Product name is required.' };
+  if (!hsn) return { ok: false, message: 'HSN number is required.' };
+
+  const cgst = toTier(formData.get('cgst'));
+  const sgst = toTier(formData.get('sgst'));
+  const isActive = formData.get('isActive') === 'on';
+  const variants = parseVariants(formData.get('variantsJson'));
+  if (variants.length === 0) return { ok: false, message: 'Add at least one variant with a price.' };
+
+  await connectDB();
+
+  const clash = await ProductRecord.findOne({ name }).select('_id').lean();
+  if (clash) return { ok: false, message: `A product named "${name}" already exists.` };
+
+  const code = await nextProductCode();
+  await ProductRecord.create({
+    code,
+    name,
+    hsn,
+    cgst,
+    sgst,
+    colours: DEFAULT_COLOURS,
+    variants,
+    isActive,
+    sortOrder: code,
+  });
+
+  revalidatePath('/products');
+  revalidatePath('/create-pi');
+  revalidatePath('/stock');
+  revalidatePath('/transit');
+  redirect('/products');
+}
 
 /** Updates a product's details (name, HSN, GST, active flag, variants). */
 export async function updateProductAction(

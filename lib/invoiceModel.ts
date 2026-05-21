@@ -76,6 +76,8 @@ export interface SavedInvoice {
   /** Ship To dealer (separate from Bill To). Optional for legacy invoices. */
   shipToDealer?: SavedDealer;
   lineItems: SavedLineItem[];
+  /** Dealer-type price tier the line items were priced at (e.g. 'dealer'). */
+  priceTier?: string;
   taxType: 'within_state' | 'other_state';
   subTotal: number;
   discount: number;
@@ -100,6 +102,20 @@ export interface SavedInvoice {
     description: string;
     updatedAt: string;
   }>;
+  /** Recorded when the first payment arrives — triggers token issue + stock reservation. */
+  firstPayment?: {
+    amount: number;
+    mode: string;
+    date: string;
+    reference?: string;
+    recordedAt: string;
+  };
+  /** Per-MU sequential token, allocated when first payment is recorded. */
+  tokenNumber?: number;
+  /** Display label for the token, e.g. `WB-T-1`. */
+  tokenLabel?: string;
+  /** Promised delivery date (ISO YYYY-MM-DD), set when first payment is recorded. */
+  expectedDeliveryDate?: string;
   createdAt?: string;
 }
 
@@ -113,6 +129,7 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     dealer: { type: Schema.Types.Mixed, required: true },
     shipToDealer: { type: Schema.Types.Mixed },
     lineItems: [{ type: Schema.Types.Mixed }],
+    priceTier: { type: String },
     taxType: { type: String, enum: ['within_state', 'other_state'], required: true },
     subTotal: { type: Number, required: true },
     discount: { type: Number, default: 0 },
@@ -139,9 +156,29 @@ const InvoiceSchema = new Schema<SavedInvoice>(
         updatedAt: { type: String, required: true },
       },
     ],
+    firstPayment: {
+      type: new Schema(
+        {
+          amount: { type: Number, required: true },
+          mode: { type: String, required: true },
+          date: { type: String, required: true },
+          reference: { type: String, default: '' },
+          recordedAt: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    tokenNumber: { type: Number },
+    tokenLabel: { type: String },
+    expectedDeliveryDate: { type: String },
   },
   { timestamps: true }
 );
 
-export const Invoice =
-  mongoose.models.Invoice || mongoose.model<SavedInvoice>('Invoice', InvoiceSchema);
+// Re-register on every module load so schema changes (new fields like
+// firstPayment, tokenNumber, expectedDeliveryDate) take effect immediately
+// during dev hot-reload — Mongoose's `strict: true` would otherwise silently
+// drop them when the cached schema is stale.
+if (mongoose.models.Invoice) mongoose.deleteModel('Invoice');
+export const Invoice = mongoose.model<SavedInvoice>('Invoice', InvoiceSchema);

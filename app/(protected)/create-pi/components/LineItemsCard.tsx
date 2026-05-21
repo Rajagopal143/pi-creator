@@ -12,19 +12,40 @@ const HEADERS = [
 
 /** "Line Items" card — price-tier selector plus the editable items table. */
 export function LineItemsCard({
-  items, products, variants, priceTier,
+  items, products, variants, priceTier, stockAvailability, stockEnforced, stockLoading, muSelected,
   onPriceTierChange, onUpdateItem, onRemoveItem, onAddItem,
 }: {
   items: ComputedLineItem[];
   products: Product[];
   variants: ProductVariant[];
   priceTier: PriceTier;
+  /** productCode → committable qty at the selected MU. */
+  stockAvailability: Record<number, number>;
+  /** When true, only in-stock models are offered and qty is capped to stock. */
+  stockEnforced: boolean;
+  /** True while available stock is being (re)fetched after an MU change. */
+  stockLoading: boolean;
+  /** A manufacturing unit must be chosen before models can be picked. */
+  muSelected: boolean;
   onPriceTierChange: (t: PriceTier) => void;
   onUpdateItem: (id: string, updates: Partial<LineItemState>) => void;
   onRemoveItem: (id: string) => void;
   onAddItem: () => void;
 }) {
   const totalQty = items.reduce((sum, i) => sum + (i.qty || 0), 0);
+
+  // Models with available stock (when enforcing). The currently-selected model
+  // on a row is always kept available to that row so it never vanishes.
+  const inStockProducts = stockEnforced
+    ? products.filter(p => (stockAvailability[p.id] ?? 0) > 0)
+    : products;
+
+  // Per-product qty already consumed across all rows — used to compute each
+  // row's remaining cap so the PI total for a product never exceeds its stock.
+  const usedByProduct = items.reduce<Record<number, number>>((acc, i) => {
+    if (i.productId != null) acc[i.productId] = (acc[i.productId] ?? 0) + (i.qty || 0);
+    return acc;
+  }, {});
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -47,7 +68,24 @@ export function LineItemsCard({
         Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier.
         Change the dropdown to re-price every product line.
       </p>
-      <div className="overflow-x-auto">
+      {!muSelected && (
+        <p className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">
+          Select a manufacturing unit above to choose models for the line items.
+        </p>
+      )}
+      <div className="relative overflow-x-auto">
+        {/* Inline loading while available stock is (re)fetched after an MU change. */}
+        {stockLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px] rounded-lg">
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
+              <svg className="size-4 animate-spin text-red-700" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading available stock…
+            </div>
+          </div>
+        )}
         <table className="w-full ">
           <thead>
             <tr className="border-b-2 border-gray-200">
@@ -59,18 +97,44 @@ export function LineItemsCard({
             </tr>
           </thead>
           <tbody>
-            {items.map((item, idx) => (
-              <LineItemRow
-                key={item.id}
-                item={item}
-                index={idx}
-                products={products}
-                variants={variants}
-                priceTier={priceTier}
-                onUpdate={onUpdateItem}
-                onRemove={onRemoveItem}
-              />
-            ))}
+            {items.map((item, idx) => {
+              // Cap = product's stock minus what *other* rows of the same
+              // product use (so the running total can't overshoot).
+              const available = item.productId != null ? (stockAvailability[item.productId] ?? 0) : 0;
+              const usedElsewhere = item.productId != null
+                ? (usedByProduct[item.productId] ?? 0) - (item.qty || 0)
+                : 0;
+              const maxQty = item.productId != null
+                ? Math.max(0, available - usedElsewhere)
+                : undefined;
+
+              // Keep this row's currently-selected model visible even if its
+              // stock has since dropped to zero (else the dropdown clears it).
+              const selected = item.productId != null
+                ? products.find(p => p.id === item.productId)
+                : undefined;
+              const rowProducts = stockEnforced && selected && !inStockProducts.some(p => p.id === selected.id)
+                ? [selected, ...inStockProducts]
+                : inStockProducts;
+
+              return (
+                <LineItemRow
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  products={rowProducts}
+                  variants={variants}
+                  priceTier={priceTier}
+                  stockAvailability={stockAvailability}
+                  stockEnforced={stockEnforced}
+                  available={item.productId != null ? available : undefined}
+                  maxQty={stockEnforced ? maxQty : undefined}
+                  muSelected={muSelected}
+                  onUpdate={onUpdateItem}
+                  onRemove={onRemoveItem}
+                />
+              );
+            })}
           </tbody>
         </table>
       </div>

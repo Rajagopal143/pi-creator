@@ -79,6 +79,65 @@ export function usePICreator({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // ── Available stock for the selected MU (productCode → committable qty) ──────
+  // Drives which models appear in the line-item dropdown and the per-line qty
+  // cap — enforced for both new PIs and edits.
+  const [stockAvailability, setStockAvailability] = useState<Record<number, number>>({});
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
+  // True while the available-stock fetch is in flight (e.g. after the MU is
+  // switched) — the line-items table shows an inline loading state.
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  // When editing a PI that already RESERVED stock (first payment recorded), its
+  // own quantities are baked into the stock `reserved` column — so the API's
+  // "available" already excludes them. Add them back per product so the edit
+  // form treats this PI's existing allocation as usable rather than gone.
+  const [editBaselineQty, setEditBaselineQty] = useState<Record<number, number>>({});
+  const enforceStock = availabilityLoaded;
+
+  // Availability the form actually enforces against: API availability plus this
+  // PI's own already-reserved quantities (only set when editing a paid PI).
+  const effectiveAvailability = useMemo<Record<number, number>>(() => {
+    const codes = Object.keys(editBaselineQty);
+    if (codes.length === 0) return stockAvailability;
+    const merged: Record<number, number> = { ...stockAvailability };
+    for (const code of codes) {
+      const c = Number(code);
+      merged[c] = (merged[c] ?? 0) + editBaselineQty[c];
+    }
+    return merged;
+  }, [stockAvailability, editBaselineQty]);
+
+  useEffect(() => {
+    if (!selectedMU) {
+      setStockAvailability({});
+      setAvailabilityLoaded(false);
+      setAvailabilityLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    setAvailabilityLoaded(false);
+    (async () => {
+      try {
+        const res = await fetch(`/api/daily-stock/available?muId=${selectedMU.id}`);
+        const json = await res.json() as {
+          success: boolean;
+          data?: Array<{ productCode: number; available: number }>;
+        };
+        if (cancelled) return;
+        const map: Record<number, number> = {};
+        if (json.success && json.data) for (const r of json.data) map[r.productCode] = r.available;
+        setStockAvailability(map);
+        setAvailabilityLoaded(true);
+      } catch {
+        if (!cancelled) { setStockAvailability({}); setAvailabilityLoaded(false); }
+      } finally {
+        if (!cancelled) setAvailabilityLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedMU]);
+
   // ── Invoice-number counters ────────────────────────────────────────────────
   const fetchCounters = useCallback(async () => {
     try {
@@ -130,6 +189,11 @@ export function usePICreator({
         setShipToAddr(normalizeAddress(shipDealer.shippingAddress || shipDealer.billingAddress));
 
         setSelectedMU(manufacturingUnit);
+        // Restore the dealer-type price tier the PI was created with (legacy
+        // invoices without one keep the default 'dealer').
+        if (typeof invoice.priceTier === 'string' && invoice.priceTier) {
+          setPriceTier(invoice.priceTier as PriceTier);
+        }
         setTaxType((invoice.taxType as TaxType) || 'within_state');
         setLineItems(
           loadedLineItems.length > 0
@@ -142,6 +206,18 @@ export function usePICreator({
               }))
             : [{ id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none' }],
         );
+        // A paid PI's quantities are already held in the stock `reserved`
+        // column, so the API's "available" excludes them — capture them as the
+        // edit baseline to add back, keeping this PI's own allocation usable.
+        if (invoice.firstPayment) {
+          const baseline: Record<number, number> = {};
+          for (const it of loadedLineItems) {
+            const pid = Number(it.productId);
+            const q = Number(it.qty) || 0;
+            if (Number.isFinite(pid) && q > 0) baseline[pid] = (baseline[pid] ?? 0) + q;
+          }
+          setEditBaselineQty(baseline);
+        }
         const loadedInvoiceDate = (invoice.invoiceDate as string) || todayISO();
         setInvoiceDate(loadedInvoiceDate);
         setDueDate(
@@ -272,10 +348,20 @@ export function usePICreator({
         if ('productId' in updates && updates.productId !== item.productId) {
           updated.variantId = null;
         }
+        // Cap qty to the product's available stock minus what other rows of
+        // the same product already consume, so the PI total never exceeds it.
+        if (enforceStock && updated.productId != null) {
+          const available = effectiveAvailability[updated.productId] ?? 0;
+          const usedByOthers = prev
+            .filter(i => i.id !== id && i.productId === updated.productId)
+            .reduce((s, i) => s + i.qty, 0);
+          const cap = Math.max(0, available - usedByOthers);
+          if (updated.qty > cap) updated.qty = cap;
+        }
         return updated;
       }),
     );
-  }, []);
+  }, [enforceStock, effectiveAvailability]);
 
   const addLineItem = useCallback(() => {
     setLineItems(prev => [
@@ -287,6 +373,29 @@ export function usePICreator({
   const removeLineItem = useCallback((id: string) => {
     setLineItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
   }, []);
+
+  // When availability changes (e.g. the MU is switched), trim any line whose
+  // qty now exceeds what's available — running per-product so the sum across
+  // rows stays within stock. Uses effective availability so a paid PI's own
+  // existing quantities are never trimmed while editing.
+  useEffect(() => {
+    if (!enforceStock) return;
+    setLineItems(prev => {
+      let changed = false;
+      const usage: Record<number, number> = {};
+      const next = prev.map(item => {
+        if (item.productId == null) return item;
+        const available = effectiveAvailability[item.productId] ?? 0;
+        const already = usage[item.productId] ?? 0;
+        const cap = Math.max(0, available - already);
+        const qty = Math.min(item.qty, cap);
+        usage[item.productId] = already + qty;
+        if (qty !== item.qty) { changed = true; return { ...item, qty }; }
+        return item;
+      });
+      return changed ? next : prev;
+    });
+  }, [effectiveAvailability, enforceStock]);
 
   // When the price tier changes, drop any selected variant now N/A for that tier.
   useEffect(() => {
@@ -355,6 +464,7 @@ export function usePICreator({
         dealer: effectiveBillTo,
         shipToDealer: effectiveShipTo,
         lineItems: computedItems,
+        priceTier,
         taxType: effectiveTaxType,
         subTotal,
         discount,
@@ -379,10 +489,26 @@ export function usePICreator({
       });
       const json = await res.json() as {
         success: boolean;
+        code?: string;
         message?: string;
         data?: { invoiceNumber?: string; seqNumber?: string };
       };
-      if (!json.success) throw new Error(json.message || 'Failed to save');
+      if (!json.success) {
+        // The stock was claimed by another order between loading the form and
+        // saving — tell the user and offer to reload the latest availability.
+        if (json.code === 'INSUFFICIENT_STOCK') {
+          toast.error(json.message || 'Stock no longer available.', {
+            description: 'Someone placed an order for this stock just now. Refresh the page to load the latest availability before creating this PI.',
+            duration: 12000,
+            action: {
+              label: 'Refresh',
+              onClick: () => { window.location.href = '/create-pi'; },
+            },
+          });
+          return;
+        }
+        throw new Error(json.message || 'Failed to save');
+      }
       // Reflect the server-assigned number (it is authoritative over the preview).
       if (json.data?.invoiceNumber) setAssignedNumber(json.data.invoiceNumber);
       if (json.data?.seqNumber) setSeqNumber(json.data.seqNumber);
@@ -396,7 +522,7 @@ export function usePICreator({
     }
   }, [
     effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
-    computedItems, effectiveTaxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
+    computedItems, priceTier, effectiveTaxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
     totalGST, totalAccessory, transportCharge, transportGST, insurance, insuranceEnabled,
     roundOff, total, fetchCounters, editInvoiceId,
   ]);
@@ -449,6 +575,8 @@ export function usePICreator({
     },
     // line items
     computedItems, updateLineItem, addLineItem, removeLineItem,
+    // stock availability (for the line-item dropdown + qty caps)
+    stockAvailability: effectiveAvailability, stockEnforced: enforceStock, stockLoading: availabilityLoading,
     // summary figures
     subTotal, totalSGST, totalCGST, totalIGST, totalGST,
     discount, setDiscount, transportCharge, setTransportCharge, transportGST,

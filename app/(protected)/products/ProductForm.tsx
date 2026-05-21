@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import type { ProductDTO, ProductVariantSub, DealerTierKey } from '@/lib/products/productModel';
-import { updateProductAction } from '@/lib/products/server-actions';
+import { createProductAction, updateProductAction } from '@/lib/products/server-actions';
 import { initialProductFormState } from '@/lib/products/formState';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -31,14 +31,19 @@ const emptyVariant = (): ProductVariantSub => ({
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 
-export default function EditProductForm({ product }: { product: ProductDTO }) {
-  const [state, formAction, pending] = useActionState(
-    updateProductAction,
-    initialProductFormState,
-  );
+/** Shared add/edit product form. `mode` picks the server action + copy. */
+export default function ProductForm({
+  mode,
+  product,
+}: {
+  mode: 'create' | 'edit';
+  product?: ProductDTO;
+}) {
+  const action = mode === 'edit' ? updateProductAction : createProductAction;
+  const [state, formAction, pending] = useActionState(action, initialProductFormState);
 
   const [variants, setVariants] = useState<ProductVariantSub[]>(
-    product.variants.length ? product.variants : [emptyVariant()],
+    product?.variants.length ? product.variants : [emptyVariant()],
   );
 
   // A successful save redirects away; any returned message is an error.
@@ -59,15 +64,21 @@ export default function EditProductForm({ product }: { product: ProductDTO }) {
   return (
     <div className="min-h-screen bg-zinc-100">
       <form action={formAction} className="mx-auto max-w-3xl space-y-5 px-4 py-6">
-        <input type="hidden" name="id" value={product.id} />
+        {mode === 'edit' && product && <input type="hidden" name="id" value={product.id} />}
         {/* Variants are edited as client state and submitted as one JSON field. */}
         <input type="hidden" name="variantsJson" value={JSON.stringify(variants)} />
 
         {/* Heading */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">{product.name}</h1>
-            <p className="text-xs text-gray-500">Product #{product.code}</p>
+            <h1 className="text-lg font-bold text-gray-900">
+              {mode === 'create' ? 'Add Product' : product?.name}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {mode === 'create'
+                ? 'A new model for the catalog'
+                : `Product #${product?.code}`}
+            </p>
           </div>
           <Link href="/products" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to products
@@ -82,13 +93,19 @@ export default function EditProductForm({ product }: { product: ProductDTO }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-gray-500 mb-1">Product Name</label>
-              <input name="name" defaultValue={product.name} required className={textInputClass} />
+              <input
+                name="name"
+                defaultValue={product?.name ?? ''}
+                required
+                placeholder="e.g. RUBIE"
+                className={textInputClass}
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">HSN Number</label>
               <input
                 name="hsn"
-                defaultValue={product.hsn}
+                defaultValue={product?.hsn ?? '87116020'}
                 required
                 placeholder="e.g. 87116020"
                 className={`${textInputClass} font-mono`}
@@ -102,7 +119,7 @@ export default function EditProductForm({ product }: { product: ProductDTO }) {
                   name="cgst"
                   min={0}
                   step="0.01"
-                  defaultValue={product.cgst}
+                  defaultValue={product?.cgst ?? 2.5}
                   className={numberInputClass}
                 />
               </div>
@@ -113,7 +130,7 @@ export default function EditProductForm({ product }: { product: ProductDTO }) {
                   name="sgst"
                   min={0}
                   step="0.01"
-                  defaultValue={product.sgst}
+                  defaultValue={product?.sgst ?? 2.5}
                   className={numberInputClass}
                 />
               </div>
@@ -122,7 +139,7 @@ export default function EditProductForm({ product }: { product: ProductDTO }) {
               <input
                 type="checkbox"
                 name="isActive"
-                defaultChecked={product.isActive}
+                defaultChecked={product?.isActive ?? true}
                 className="h-4 w-4 accent-red-700"
               />
               Active — shown in the PI creator
@@ -204,7 +221,7 @@ export default function EditProductForm({ product }: { product: ProductDTO }) {
             disabled={pending}
             className="bg-red-700 text-white text-sm font-medium px-6 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {pending ? 'Saving…' : 'Save Product'}
+            {pending ? 'Saving…' : mode === 'create' ? 'Create Product' : 'Save Product'}
           </button>
         </div>
       </form>

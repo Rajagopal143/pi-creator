@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getProductForEditAction } from '@/lib/products/server-actions';
-import EditProductForm from './EditProductForm';
+import ProductForm from '../../ProductForm';
 
 export const metadata = {
   title: 'Edit Product — Yakuza DMS',
@@ -15,5 +15,5 @@ export default async function EditProductPage({
   const product = await getProductForEditAction(id);
   if (!product) notFound();
 
-  return <EditProductForm product={product} />;
+  return <ProductForm mode="edit" product={product} />;
 }

@@ -8,21 +8,42 @@ import { ProductSelect } from './ProductSelect';
 
 /** A single editable row in the line-items table. */
 export function LineItemRow({
-  item, index, products, variants, priceTier, onUpdate, onRemove,
+  item, index, products, variants, priceTier,
+  stockAvailability, stockEnforced, available, maxQty, muSelected,
+  onUpdate, onRemove,
 }: {
   item: ComputedLineItem;
   index: number;
   products: Product[];
   variants: ProductVariant[];
   priceTier: PriceTier;
+  /** productCode → committable qty (for the dropdown stock labels). */
+  stockAvailability: Record<number, number>;
+  /** When true, models are stock-filtered and qty is capped. */
+  stockEnforced: boolean;
+  /** Total available for this row's product (for the qty hint). */
+  available?: number;
+  /** Max qty this row may take (product stock minus other rows' usage). */
+  maxQty?: number;
+  /** A manufacturing unit must be chosen before a model can be picked. */
+  muSelected: boolean;
   onUpdate: (id: string, updates: Partial<LineItemState>) => void;
   onRemove: (id: string) => void;
 }) {
+  // Qty is only editable once a model is selected for this line.
+  const qtyDisabled = item.productId == null;
   // Only variants priced for the selected tier are offered — N/A configs (price 0) are hidden.
   const productVariants = useMemo(
     () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier) > 0),
     [variants, item.productId, priceTier],
   );
+
+  // Clamp qty entry to the available cap when stock enforcement is on.
+  const handleQtyChange = (raw: number) => {
+    let qty = Math.max(0, Math.floor(raw || 0));
+    if (stockEnforced && maxQty != null) qty = Math.min(qty, maxQty);
+    onUpdate(item.id, { qty });
+  };
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50">
@@ -31,6 +52,9 @@ export function LineItemRow({
         <ProductSelect
           products={products}
           value={item.productId}
+          stockAvailability={stockEnforced ? stockAvailability : undefined}
+          disabled={!muSelected}
+          placeholder="— Select unit first —"
           onChange={id => onUpdate(item.id, { productId: id })}
         />
       </td>
@@ -71,17 +95,26 @@ export function LineItemRow({
           </label>
         </div>
       </td>
-      <td className="py-2 px-2 w-20">
+      <td className="py-2 px-2 w-24">
         <input
           type="number"
           min={0}
+          max={stockEnforced && maxQty != null ? maxQty : undefined}
+          disabled={qtyDisabled}
           // Qty may be left blank — 0 shows as an empty field rather than forcing 1.
           value={item.qty || ''}
-          onChange={e => onUpdate(item.id, { qty: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+          onChange={e => handleQtyChange(Number(e.target.value))}
           // Blur on wheel so scrolling over a focused field never changes the qty.
           onWheel={e => e.currentTarget.blur()}
-          className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
+          placeholder={qtyDisabled ? '—' : ''}
+          title={qtyDisabled ? 'Select a model first' : undefined}
+          className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-red-600 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
         />
+        {stockEnforced && item.productId != null && available != null && (
+          <span className={`block text-[10px] mt-0.5 text-center ${available === 0 ? 'text-red-500' : 'text-gray-400'}`}>
+            {available === 0 ? 'out of stock' : `avail: ${available}`}
+          </span>
+        )}
       </td>
       <td className="py-2 px-2 text-right text-sm text-gray-700 w-28 whitespace-nowrap">
         {item.displayRate > 0 ? formatINR(item.displayRate) : '—'}

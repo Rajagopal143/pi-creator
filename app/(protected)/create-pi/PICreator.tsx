@@ -68,6 +68,10 @@ export default function PICreator(props: PICreatorInput) {
           products={pi.products}
           variants={pi.variants}
           priceTier={pi.priceTier}
+          stockAvailability={pi.stockAvailability}
+          stockEnforced={pi.stockEnforced}
+          stockLoading={pi.stockLoading}
+          muSelected={!!pi.selectedMU}
           onPriceTierChange={pi.setPriceTier}
           onUpdateItem={pi.updateLineItem}
           onRemoveItem={pi.removeLineItem}

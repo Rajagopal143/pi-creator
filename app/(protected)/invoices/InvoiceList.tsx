@@ -24,13 +24,21 @@ import {
   type InvoiceFilters,
 } from './InvoiceFilterControls';
 import { downloadInvoicesExcel } from './invoiceExport';
+import { PaymentModal } from './PaymentModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ApiResponse {
   success: boolean;
   data: SavedInvoice[];
-  meta: { total: number; page: number; limit: number; totalPages: number };
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    /** Total qty across every invoice matching the filter (all pages). */
+    totalQty?: number;
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -166,8 +174,9 @@ interface InvoiceListProps {
 
 export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [invoices, setInvoices]       = useState<SavedInvoice[]>([]);
-  const [meta, setMeta]               = useState({ total: 0, page: 1, totalPages: 1, limit: DEFAULT_LIMIT });
+  const [meta, setMeta]               = useState({ total: 0, page: 1, totalPages: 1, limit: DEFAULT_LIMIT, totalQty: 0 });
   const [loading, setLoading]         = useState(true);
+  const [paymentInvoice, setPaymentInvoice] = useState<SavedInvoice | null>(null);
 
   const [search, setSearch]           = useState('');
   const [filters, setFilters]         = useState<InvoiceFilters>(EMPTY_FILTERS);
@@ -210,6 +219,7 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
         page: json.meta.page,
         totalPages: json.meta.totalPages,
         limit: json.meta.limit,
+        totalQty: json.meta.totalQty ?? 0,
       });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to load invoices');
@@ -306,9 +316,18 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
     <div className="min-h-0 bg-zinc-100 print:hidden">
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
-            {meta.total} invoice{meta.total !== 1 ? 's' : ''} total
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              {meta.total} invoice{meta.total !== 1 ? 's' : ''} total
+            </p>
+            {/* Total Qty across every invoice matching the active filter — server-aggregated. */}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-100 px-2.5 py-1 text-[11px] font-medium text-red-700">
+              Total Qty
+              <span className="font-bold text-red-800">
+                {meta.totalQty.toLocaleString('en-IN')}
+              </span>
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-500">Rows</label>
             <select
@@ -383,7 +402,7 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50">
-                  {['Invoice #', 'Date', 'Bill To', 'Ship To', 'MFG Unit', 'Status', 'Items', 'Total', 'Saved On', 'Actions'].map(h => (
+                  {['Invoice #', 'Date', 'Bill To', 'Ship To', 'MFG Unit', 'Status', 'Items', 'Qty', 'Total', 'Saved On', 'Actions'].map(h => (
                     <th
                       key={h}
                       className="text-[10px] uppercase text-gray-500 font-semibold text-left px-4 py-3 tracking-wide"
@@ -397,7 +416,7 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-b border-gray-100">
-                      {Array.from({ length: 10 }).map((__, j) => (
+                      {Array.from({ length: 11 }).map((__, j) => (
                         <td key={j} className="px-4 py-3">
                           <div className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: j === 0 ? '80%' : '60%' }} />
                         </td>
@@ -406,7 +425,7 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                   ))
                 ) : invoices.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center">
+                    <td colSpan={11} className="px-4 py-12 text-center">
                       <div className="text-gray-400 text-sm">
                         {hasActiveFilters
                           ? 'No invoices match your filters.'
@@ -427,6 +446,11 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                     <tr key={String(inv._id)} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-xs font-mono font-medium text-gray-900 whitespace-nowrap">
                         {inv.invoiceNumber}
+                        {inv.tokenLabel && (
+                          <div className="mt-0.5 inline-block rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
+                            {inv.tokenLabel}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
                         {formatDate(inv.invoiceDate)}
@@ -463,6 +487,9 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                       <td className="px-4 py-3 text-xs text-gray-700 text-center">
                         {inv.lineItems?.length ?? 0}
                       </td>
+                      <td className="px-4 py-3 text-xs text-gray-900 text-center font-semibold">
+                        {(inv.lineItems ?? []).reduce((s, li) => s + (li.qty || 0), 0)}
+                      </td>
                       <td className="px-4 py-3 text-xs font-semibold text-gray-900 whitespace-nowrap">
                         {formatINR(inv.total)}
                       </td>
@@ -489,6 +516,11 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                                 Edit PI
                               </Link>
                             </DropdownMenuItem>
+                            {!inv.firstPayment && (
+                              <DropdownMenuItem onClick={() => setPaymentInvoice(inv)}>
+                                Record First Payment
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openStatusEditor(inv)}>
                               Update Status
                             </DropdownMenuItem>
@@ -613,6 +645,13 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
           </div>
         </div>
       )}
+
+      {/* First-payment modal */}
+      <PaymentModal
+        invoice={paymentInvoice}
+        onClose={() => setPaymentInvoice(null)}
+        onRecorded={fetchInvoices}
+      />
 
       {/* Delete confirmation */}
       {deleteInvoice && (

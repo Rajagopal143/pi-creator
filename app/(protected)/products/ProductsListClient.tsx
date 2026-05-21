@@ -36,13 +36,24 @@ export default function ProductsListClient({ products }: { products: ProductDTO[
           <p className="text-xs text-gray-500">
             {products.length} product{products.length !== 1 ? 's' : ''} in catalog
           </p>
-          <input
-            type="text"
-            placeholder="Search by name or HSN…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-64 max-w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search by name or HSN…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-64 max-w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+            />
+            <Link
+              href="/products/new"
+              className="inline-flex items-center gap-1.5 bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-600 transition-colors whitespace-nowrap"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Product
+            </Link>
+          </div>
         </div>
 
         {/* Table */}

@@ -14,7 +14,10 @@ const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
-const COLUMNS = ['DATE', 'Order', 'Bill To', 'Ship To', 'Name of Item', 'Ordered', 'Rate'] as const;
+const COLUMNS = [
+  'DATE', 'Order', 'Token', 'Bill To', 'Ship To',
+  'Name of Item', 'Ordered', 'Rate', 'Expected Delivery',
+] as const;
 
 /** Formats an ISO date as `DD-MMM-YY`, e.g. `2026-04-20` → `20-Apr-26`. */
 function formatExportDate(iso: string): string {
@@ -43,25 +46,31 @@ export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
     const billTo = inv.dealer?.orgName ?? '';
     // Ship To falls back to the Bill To dealer for legacy invoices.
     const shipTo = inv.shipToDealer?.orgName ?? billTo;
+    const token = inv.tokenLabel ?? '';
+    const delivery = inv.expectedDeliveryDate ? formatExportDate(inv.expectedDeliveryDate) : '';
 
     if (items.length === 0) {
-      rows.push([date, inv.invoiceNumber, billTo, shipTo, '', '', '']);
+      rows.push([date, inv.invoiceNumber, token, billTo, shipTo, '', '', '', delivery]);
     } else {
       items.forEach((item, i) => {
         rows.push([
           i === 0 ? date : '',
           i === 0 ? inv.invoiceNumber : '',
+          i === 0 ? token : '',
           i === 0 ? billTo : '',
           i === 0 ? shipTo : '',
           `${item.productName ?? ''} ${item.variantName ?? ''}`.trim(),
           `${item.qty ?? 0} NOS`,
           (item.totalAmount ?? 0).toFixed(2),
+          i === 0 ? delivery : '',
         ]);
       });
     }
 
     // Blank row visually separates one invoice block from the next.
-    if (invIndex < ordered.length - 1) rows.push(['', '', '', '', '', '', '']);
+    if (invIndex < ordered.length - 1) {
+      rows.push(['', '', '', '', '', '', '', '', '']);
+    }
   });
 
   return rows.map(r => r.map(csvCell).join(',')).join('\r\n');
