@@ -1,7 +1,8 @@
 'use client';
 
 import type { Dealer } from '@/lib/csvData';
-import type { DealerAddress } from '../types';
+import type { DealerAddress, PriceList } from '../types';
+import { PRICE_LISTS } from '../constants';
 import { DealerSearch } from './DealerSearch';
 import { EditableAddressBlock } from './EditableAddress';
 
@@ -50,13 +51,40 @@ function DealerParty({
   );
 }
 
-/** "Bill To & Ship To" card. */
-export function PartiesCard({ billTo, shipTo }: { billTo: DealerPartyProps; shipTo: DealerPartyProps }) {
+/** "Bill To & Ship To" card, with the Old/New price-list toggle for the PI. */
+export function PartiesCard({
+  billTo, shipTo, priceList, onPriceListChange,
+}: {
+  billTo: DealerPartyProps;
+  shipTo: DealerPartyProps;
+  priceList: PriceList;
+  onPriceListChange: (p: PriceList) => void;
+}) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">
-        Bill To &amp; Ship To
-      </h2>
+      <div className="mb-4 pb-2 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-gray-700">Bill To &amp; Ship To</h2>
+        {/* Price-list toggle — picks which price list the dealer is quoted. */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium text-gray-500">Price List</span>
+          <div className="inline-flex rounded-lg border border-zinc-300 p-0.5">
+            {PRICE_LISTS.map(pl => (
+              <button
+                key={pl.value}
+                type="button"
+                onClick={() => onPriceListChange(pl.value)}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  priceList === pl.value
+                    ? 'bg-red-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {pl.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <DealerParty {...billTo} />
         <DealerParty {...shipTo} />

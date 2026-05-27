@@ -23,10 +23,19 @@ const numberInputClass =
 const textInputClass =
   'w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600';
 
+const zeroTiers = () => ({ areadealer: 0, districtdealer: 0, distributor: 0, divisionaldistributor: 0 });
+
 const emptyVariant = (): ProductVariantSub => ({
   key: '',
   label: '',
-  prices: { areadealer: 0, districtdealer: 0, distributor: 0, divisionaldistributor: 0 },
+  prices: zeroTiers(),
+  newPrices: zeroTiers(),
+});
+
+/** Ensures a loaded variant always has a `newPrices` object to edit. */
+const withNewPrices = (v: ProductVariantSub): ProductVariantSub => ({
+  ...v,
+  newPrices: v.newPrices ?? zeroTiers(),
 });
 
 // ─── Component ──────────────────────────────────────────────────────────────────
@@ -43,7 +52,7 @@ export default function ProductForm({
   const [state, formAction, pending] = useActionState(action, initialProductFormState);
 
   const [variants, setVariants] = useState<ProductVariantSub[]>(
-    product?.variants.length ? product.variants : [emptyVariant()],
+    product?.variants.length ? product.variants.map(withNewPrices) : [emptyVariant()],
   );
 
   // A successful save redirects away; any returned message is an error.
@@ -58,6 +67,15 @@ export default function ProductForm({
     setVariants(vs =>
       vs.map((v, i) =>
         i === idx ? { ...v, prices: { ...v.prices, [tier]: value } } : v,
+      ),
+    );
+
+  const patchNewPrice = (idx: number, tier: DealerTierKey, value: number) =>
+    setVariants(vs =>
+      vs.map((v, i) =>
+        i === idx
+          ? { ...v, newPrices: { ...(v.newPrices ?? zeroTiers()), [tier]: value } }
+          : v,
       ),
     );
 
@@ -148,6 +166,8 @@ export default function ProductForm({
           <p className="mt-3 text-[11px] text-gray-400">
             Variant prices below are <strong>GST-inclusive</strong>. Total GST ={' '}
             CGST + SGST. A price of 0 marks the variant N/A for that dealer tier.
+            Each variant has an <strong>Old</strong> and a <strong>New</strong> price list —
+            the PI creator picks between them with the Old/New toggle.
           </p>
         </div>
 
@@ -175,6 +195,10 @@ export default function ProductForm({
                     Remove
                   </button>
                 </div>
+                {/* Old price list (GST-inclusive). */}
+                <div className="mb-1.5 text-[10px] uppercase tracking-wide text-gray-500 font-bold">
+                  Old Price <span className="text-gray-400 font-medium normal-case">(₹, incl. GST)</span>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {TIERS.map(tier => (
                     <div key={tier.key}>
@@ -187,6 +211,29 @@ export default function ProductForm({
                         step="0.01"
                         value={v.prices[tier.key] || ''}
                         onChange={e => patchPrice(idx, tier.key, Number(e.target.value) || 0)}
+                        placeholder="0"
+                        className={numberInputClass}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* New price list (GST-inclusive) — May 2026 onward. */}
+                <div className="mt-4 mb-1.5 text-[10px] uppercase tracking-wide text-red-600 font-bold">
+                  New Price <span className="text-gray-400 font-medium normal-case">(₹, incl. GST)</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {TIERS.map(tier => (
+                    <div key={tier.key}>
+                      <label className="block text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1">
+                        {tier.label}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={v.newPrices?.[tier.key] || ''}
+                        onChange={e => patchNewPrice(idx, tier.key, Number(e.target.value) || 0)}
                         placeholder="0"
                         className={numberInputClass}
                       />

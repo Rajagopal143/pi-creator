@@ -4,6 +4,8 @@ import type { Dealer } from '@/lib/csvData';
 
 export type AccessoryType = 'none' | 'black' | 'steel';
 export type PriceTier = 'dealer' | 'distributor' | 'subdealer' | 'areadealer';
+/** Which price list the line items are priced from. */
+export type PriceList = 'old' | 'new';
 export type TaxType = 'within_state' | 'other_state';
 export type DealerAddress = Dealer['billingAddress'];
 

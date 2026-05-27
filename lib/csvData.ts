@@ -49,6 +49,11 @@ export interface ProductVariant {
   subdealerPrice: number;
   sellingPrice: number;
   areadealerPrice: number;
+  /** "New" price list (May 2026) base rates — 0 when not on the new list. */
+  newDealerPrice: number;
+  newDistributorPrice: number;
+  newSubdealerPrice: number;
+  newAreadealerPrice: number;
   isWBC: boolean;
 }
 
@@ -185,6 +190,12 @@ export function loadProductVariants(): ProductVariant[] {
       subdealerPrice: parseFloat(o.subdealerPrice) || 0,
       sellingPrice: parseFloat(o.sellingPrice) || 0,
       areadealerPrice: parseFloat(o.areadealerPrice) || 0,
+      // The legacy CSV has no new-list prices; the live catalog is sourced from
+      // MongoDB (getPricedCatalog), which supplies these for real.
+      newDealerPrice: 0,
+      newDistributorPrice: 0,
+      newSubdealerPrice: 0,
+      newAreadealerPrice: 0,
       isWBC: o.isWBC === '1',
     }));
 }

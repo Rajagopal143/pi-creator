@@ -42,16 +42,23 @@ export async function getPricedCatalog(): Promise<PricedCatalog> {
     });
 
     doc.variants.forEach((v, idx) => {
+      const np = v.newPrices;
       variants.push({
         // Deterministic id derived from the stable product code + variant slot.
         id: doc.code * 1000 + idx,
         productId: doc.code,
         name: v.label,
+        // "Old" price list (the long-standing dealer prices).
         dealerPrice: baseRate(v.prices.districtdealer),
         distributorPrice: baseRate(v.prices.distributor),
         subdealerPrice: baseRate(v.prices.divisionaldistributor),
         areadealerPrice: baseRate(v.prices.areadealer),
         sellingPrice: v.prices.districtdealer || 0,
+        // "New" price list (May 2026); 0 when the model isn't on the new list.
+        newDealerPrice: baseRate(np?.districtdealer ?? 0),
+        newDistributorPrice: baseRate(np?.distributor ?? 0),
+        newSubdealerPrice: baseRate(np?.divisionaldistributor ?? 0),
+        newAreadealerPrice: baseRate(np?.areadealer ?? 0),
         isWBC: v.key === 'wobc',
       });
     });

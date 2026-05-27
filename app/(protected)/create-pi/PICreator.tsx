@@ -47,6 +47,8 @@ export default function PICreator(props: PICreatorInput) {
         />
 
         <PartiesCard
+          priceList={pi.priceList}
+          onPriceListChange={pi.setPriceList}
           billTo={{
             label: 'Bill To Dealer',
             keyPrefix: 'bill',
@@ -68,6 +70,7 @@ export default function PICreator(props: PICreatorInput) {
           products={pi.products}
           variants={pi.variants}
           priceTier={pi.priceTier}
+          priceList={pi.priceList}
           stockAvailability={pi.stockAvailability}
           stockEnforced={pi.stockEnforced}
           stockLoading={pi.stockLoading}

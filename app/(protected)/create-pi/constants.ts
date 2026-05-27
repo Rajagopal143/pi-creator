@@ -1,4 +1,4 @@
-import type { AccessoryType, PriceTier, DealerAddress } from './types';
+import type { AccessoryType, PriceTier, PriceList, DealerAddress } from './types';
 
 // ─── Tax & charge rates ─────────────────────────────────────────────────────────
 
@@ -32,6 +32,15 @@ export const PRICE_TIERS: { value: PriceTier; label: string }[] = [
   { value: 'subdealer',   label: 'Divisional Distributor' },
   { value: 'dealer',      label: 'District Dealer' },
   { value: 'areadealer',  label: 'Area Dealer' },
+];
+
+/**
+ * Price lists the line items can be priced from. "Old" is the long-standing
+ * dealer price list; "New" is the May-2026 revision.
+ */
+export const PRICE_LISTS: { value: PriceList; label: string }[] = [
+  { value: 'old', label: 'Old Price' },
+  { value: 'new', label: 'New Price' },
 ];
 
 export const EMPTY_ADDRESS: DealerAddress = {

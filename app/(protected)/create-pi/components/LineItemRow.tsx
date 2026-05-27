@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import type { Product, ProductVariant } from '@/lib/csvData';
-import type { ComputedLineItem, LineItemState, PriceTier } from '../types';
+import type { ComputedLineItem, LineItemState, PriceList, PriceTier } from '../types';
 import { getVariantPrice, formatINR } from '../utils';
 import { ProductSelect } from './ProductSelect';
 
 /** A single editable row in the line-items table. */
 export function LineItemRow({
-  item, index, products, variants, priceTier,
+  item, index, products, variants, priceTier, priceList,
   stockAvailability, stockEnforced, available, maxQty, muSelected,
   onUpdate, onRemove,
 }: {
@@ -17,6 +17,8 @@ export function LineItemRow({
   products: Product[];
   variants: ProductVariant[];
   priceTier: PriceTier;
+  /** Which price list (Old / New) the rates reflect. */
+  priceList: PriceList;
   /** productCode → committable qty (for the dropdown stock labels). */
   stockAvailability: Record<number, number>;
   /** When true, models are stock-filtered and qty is capped. */
@@ -32,10 +34,11 @@ export function LineItemRow({
 }) {
   // Qty is only editable once a model is selected for this line.
   const qtyDisabled = item.productId == null;
-  // Only variants priced for the selected tier are offered — N/A configs (price 0) are hidden.
+  // Only variants priced for the selected tier + list are offered — N/A configs
+  // (price 0, e.g. a model that isn't on the new list) are hidden.
   const productVariants = useMemo(
-    () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier) > 0),
-    [variants, item.productId, priceTier],
+    () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier, priceList) > 0),
+    [variants, item.productId, priceTier, priceList],
   );
 
   // Clamp qty entry to the available cap when stock enforcement is on.

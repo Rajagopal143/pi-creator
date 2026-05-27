@@ -78,6 +78,8 @@ export interface SavedInvoice {
   lineItems: SavedLineItem[];
   /** Dealer-type price tier the line items were priced at (e.g. 'dealer'). */
   priceTier?: string;
+  /** Which price list the line items were priced from ('old' | 'new'). */
+  priceList?: 'old' | 'new';
   taxType: 'within_state' | 'other_state';
   subTotal: number;
   discount: number;
@@ -130,6 +132,7 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     shipToDealer: { type: Schema.Types.Mixed },
     lineItems: [{ type: Schema.Types.Mixed }],
     priceTier: { type: String },
+    priceList: { type: String, enum: ['old', 'new'], default: 'old' },
     taxType: { type: String, enum: ['within_state', 'other_state'], required: true },
     subTotal: { type: Number, required: true },
     discount: { type: Number, default: 0 },

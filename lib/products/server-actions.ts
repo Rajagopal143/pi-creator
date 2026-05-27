@@ -44,9 +44,19 @@ function parseVariants(raw: FormDataEntryValue | null): ProductVariantSub[] {
   }
   if (!Array.isArray(parsed)) return [];
 
+  const tiers = (p?: Partial<TierPrices>): TierPrices => ({
+    areadealer: toTier(p?.areadealer),
+    districtdealer: toTier(p?.districtdealer),
+    distributor: toTier(p?.distributor),
+    divisionaldistributor: toTier(p?.divisionaldistributor),
+  });
+
   return parsed
     .map((v): ProductVariantSub | null => {
-      const row = v as Partial<ProductVariantSub> & { prices?: Partial<TierPrices> };
+      const row = v as Partial<ProductVariantSub> & {
+        prices?: Partial<TierPrices>;
+        newPrices?: Partial<TierPrices>;
+      };
       const label = String(row.label ?? '').trim();
       if (!label) return null;
       const key = String(row.key ?? '').trim() ||
@@ -54,12 +64,8 @@ function parseVariants(raw: FormDataEntryValue | null): ProductVariantSub[] {
       return {
         key,
         label,
-        prices: {
-          areadealer: toTier(row.prices?.areadealer),
-          districtdealer: toTier(row.prices?.districtdealer),
-          distributor: toTier(row.prices?.distributor),
-          divisionaldistributor: toTier(row.prices?.divisionaldistributor),
-        },
+        prices: tiers(row.prices),
+        newPrices: tiers(row.newPrices),
       };
     })
     .filter((v): v is ProductVariantSub => v !== null);
@@ -103,6 +109,8 @@ export async function createProductAction(
     variants,
     isActive,
     sortOrder: code,
+    // The form already supplies new prices — keep the new-list back-fill away.
+    newPricesSeeded: true,
   });
 
   revalidatePath('/products');
@@ -146,7 +154,9 @@ export async function updateProductAction(
 
   await ProductRecord.updateOne(
     { _id: existing._id },
-    { $set: { name, hsn, cgst, sgst, isActive, variants } },
+    // `newPricesSeeded: true` makes the edited new prices authoritative — the
+    // new-list back-fill never re-runs over a hand-edited product.
+    { $set: { name, hsn, cgst, sgst, isActive, variants, newPricesSeeded: true } },
   );
 
   revalidatePath('/products');

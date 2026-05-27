@@ -1,7 +1,7 @@
 'use client';
 
 import type { Product, ProductVariant } from '@/lib/csvData';
-import type { ComputedLineItem, LineItemState, PriceTier } from '../types';
+import type { ComputedLineItem, LineItemState, PriceList, PriceTier } from '../types';
 import { PRICE_TIERS } from '../constants';
 import { LineItemRow } from './LineItemRow';
 
@@ -12,13 +12,15 @@ const HEADERS = [
 
 /** "Line Items" card — price-tier selector plus the editable items table. */
 export function LineItemsCard({
-  items, products, variants, priceTier, stockAvailability, stockEnforced, stockLoading, muSelected,
+  items, products, variants, priceTier, priceList, stockAvailability, stockEnforced, stockLoading, muSelected,
   onPriceTierChange, onUpdateItem, onRemoveItem, onAddItem,
 }: {
   items: ComputedLineItem[];
   products: Product[];
   variants: ProductVariant[];
   priceTier: PriceTier;
+  /** Which price list (Old / New) the rates reflect. */
+  priceList: PriceList;
   /** productCode → committable qty at the selected MU. */
   stockAvailability: Record<number, number>;
   /** When true, only in-stock models are offered and qty is capped to stock. */
@@ -65,8 +67,9 @@ export function LineItemsCard({
         </div>
       </div>
       <p className="text-[11px] text-gray-400 mb-3">
-        Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier.
-        Change the dropdown to re-price every product line.
+        Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier
+        on the <strong className="text-gray-600">{priceList === 'new' ? 'New' : 'Old'}</strong> price list.
+        Change the dropdown to re-price every product line; switch Old/New near the dealer selection above.
       </p>
       {!muSelected && (
         <p className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">
@@ -125,6 +128,7 @@ export function LineItemsCard({
                   products={rowProducts}
                   variants={variants}
                   priceTier={priceTier}
+                  priceList={priceList}
                   stockAvailability={stockAvailability}
                   stockEnforced={stockEnforced}
                   available={item.productId != null ? available : undefined}

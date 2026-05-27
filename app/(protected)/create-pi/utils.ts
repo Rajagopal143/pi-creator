@@ -1,9 +1,26 @@
 import type { ProductVariant } from '@/lib/csvData';
-import type { PriceTier, DealerAddress } from './types';
+import type { PriceTier, PriceList, DealerAddress } from './types';
 import { EMPTY_ADDRESS } from './constants';
 
-/** Resolves a variant's base (GST-exclusive) price for the selected dealer tier. */
-export function getVariantPrice(variant: ProductVariant, tier: PriceTier): number {
+/**
+ * Resolves a variant's base (GST-exclusive) price for the selected dealer tier
+ * and price list. The "new" list (May 2026) falls back to 0 (N/A) for models
+ * that aren't on it, so the PI creator hides them when "New" is chosen.
+ */
+export function getVariantPrice(
+  variant: ProductVariant,
+  tier: PriceTier,
+  priceList: PriceList = 'old',
+): number {
+  if (priceList === 'new') {
+    switch (tier) {
+      case 'dealer':      return variant.newDealerPrice;
+      case 'distributor': return variant.newDistributorPrice;
+      case 'subdealer':   return variant.newSubdealerPrice;
+      case 'areadealer':  return variant.newAreadealerPrice;
+      default:            return variant.newDealerPrice;
+    }
+  }
   switch (tier) {
     case 'dealer':      return variant.dealerPrice;
     case 'distributor': return variant.distributorPrice;

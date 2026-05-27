@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { loadProducts, type ProductColour } from '@/lib/csvData';
 import pricing from '@/lib/productPricing.json';
+import newPricing from '@/lib/productPricingNew.json';
 
 /**
  * Product catalog stored in MongoDB.
@@ -47,10 +48,21 @@ export type DealerTierKey =
 /** GST-inclusive price per dealer tier. */
 export type TierPrices = Record<DealerTierKey, number>;
 
+/** A zero-filled tier-price set (treated as N/A everywhere). */
+export const zeroTierPrices = (): TierPrices => ({
+  areadealer: 0,
+  districtdealer: 0,
+  distributor: 0,
+  divisionaldistributor: 0,
+});
+
 export interface ProductVariantSub {
   key: string;
   label: string;
+  /** "Old" GST-inclusive price list (the long-standing dealer prices). */
   prices: TierPrices;
+  /** "New" GST-inclusive price list (May 2026 onward); 0 = not on the new list. */
+  newPrices?: TierPrices;
 }
 
 export interface ProductDoc {
@@ -65,6 +77,8 @@ export interface ProductDoc {
   variants: ProductVariantSub[];
   isActive: boolean;
   sortOrder: number;
+  /** True once the variant `newPrices` have been back-filled from the new list. */
+  newPricesSeeded?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -78,6 +92,7 @@ export interface ProductDTO {
   cgst: number;
   sgst: number;
   isActive: boolean;
+  /** Variants always carry both `prices` (old) and `newPrices` for the edit form. */
   variants: ProductVariantSub[];
 }
 
@@ -98,6 +113,9 @@ const VariantSchema = new Schema<ProductVariantSub>(
     key: { type: String, default: '' },
     label: { type: String, required: true },
     prices: { type: TierPricesSchema, default: () => ({}) },
+    // Left undefined until back-filled from the new price list (see
+    // `ensureNewPricingApplied`); a 0-filled set means "not on the new list".
+    newPrices: { type: TierPricesSchema, default: undefined },
   },
   { _id: false },
 );
@@ -121,13 +139,20 @@ const ProductSchema = new Schema<ProductDoc>(
     variants: { type: [VariantSchema], default: [] },
     isActive: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 0 },
+    newPricesSeeded: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
 
-export const ProductRecord =
-  (mongoose.models.ProductRecord as mongoose.Model<ProductDoc>) ||
-  mongoose.model<ProductDoc>('ProductRecord', ProductSchema, 'products');
+// Re-register on every module load so schema additions (newPrices,
+// newPricesSeeded) take effect immediately during dev hot-reload — Mongoose's
+// `strict: true` would otherwise silently drop them from the cached schema.
+if (mongoose.models.ProductRecord) mongoose.deleteModel('ProductRecord');
+export const ProductRecord = mongoose.model<ProductDoc>(
+  'ProductRecord',
+  ProductSchema,
+  'products',
+);
 
 // ─── Seeding ────────────────────────────────────────────────────────────────────
 
@@ -188,11 +213,90 @@ export async function ensureProductsSeeded(): Promise<void> {
       ProductRecord.updateOne({ name: p.name }, { $setOnInsert: p }, { upsert: true }),
     ),
   );
+  await ensureNewPricingApplied();
+}
+
+// ─── New price list (May 2026) ────────────────────────────────────────────────────
+
+interface NewPricingFile {
+  /** Upper-cased product name → variant key → new GST-inclusive tier prices. */
+  newPricesByProduct: Record<string, Record<string, TierPrices>>;
+  /** Models that only exist on the new list (no old prices). */
+  newProducts: Array<{
+    name: string;
+    hsn: string;
+    cgst: number;
+    sgst: number;
+    variants: ProductVariantSub[];
+  }>;
+}
+
+/**
+ * Back-fills `newPrices` onto existing variants and inserts the new-list-only
+ * models (ADDA / Y1 / Y2). Runs idempotently:
+ *
+ * - Existing products are back-filled exactly once (guarded by `newPricesSeeded`)
+ *   so later manual edits to `newPrices` are never clobbered.
+ * - New-only products are created once, matched by their unique name.
+ */
+export async function ensureNewPricingApplied(): Promise<void> {
+  const data = newPricing as unknown as NewPricingFile;
+
+  // 1. Back-fill new prices onto products not yet seeded.
+  const pending = await ProductRecord.find({ newPricesSeeded: { $ne: true } }).lean();
+  for (const doc of pending) {
+    const byKey = data.newPricesByProduct[norm(doc.name)] ?? {};
+    const variants = (doc.variants ?? []).map(v => ({
+      key: v.key,
+      label: v.label,
+      prices: v.prices,
+      newPrices: byKey[v.key] ?? zeroTierPrices(),
+    }));
+    await ProductRecord.updateOne(
+      { _id: doc._id },
+      { $set: { variants, newPricesSeeded: true } },
+    );
+  }
+
+  // 2. Create new-list-only models (idempotent via the unique `name` index).
+  for (const np of data.newProducts) {
+    const exists = await ProductRecord.findOne({ name: np.name }).select('_id').lean();
+    if (exists) continue;
+    try {
+      const code = await nextProductCode();
+      await ProductRecord.create({
+        code,
+        name: np.name,
+        hsn: np.hsn || DEFAULT_HSN,
+        cgst: np.cgst,
+        sgst: np.sgst,
+        colours: DEFAULT_COLOURS,
+        variants: np.variants.map(v => ({
+          key: v.key,
+          label: v.label,
+          prices: v.prices ?? zeroTierPrices(),
+          newPrices: v.newPrices ?? zeroTierPrices(),
+        })),
+        isActive: true,
+        sortOrder: code,
+        newPricesSeeded: true,
+      });
+    } catch (err: unknown) {
+      // A concurrent seed won the race — the unique name index rejected the dup.
+      if (!(err instanceof Error && err.message.includes('E11000'))) throw err;
+    }
+  }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 export function productToDTO(d: ProductDoc): ProductDTO {
+  const tier = (p?: Partial<TierPrices>): TierPrices => ({
+    areadealer: p?.areadealer ?? 0,
+    districtdealer: p?.districtdealer ?? 0,
+    distributor: p?.distributor ?? 0,
+    divisionaldistributor: p?.divisionaldistributor ?? 0,
+  });
   return {
     id: String(d._id),
     code: d.code,
@@ -204,12 +308,8 @@ export function productToDTO(d: ProductDoc): ProductDTO {
     variants: (d.variants ?? []).map(v => ({
       key: v.key,
       label: v.label,
-      prices: {
-        areadealer: v.prices?.areadealer ?? 0,
-        districtdealer: v.prices?.districtdealer ?? 0,
-        distributor: v.prices?.distributor ?? 0,
-        divisionaldistributor: v.prices?.divisionaldistributor ?? 0,
-      },
+      prices: tier(v.prices),
+      newPrices: tier(v.newPrices),
     })),
   };
 }

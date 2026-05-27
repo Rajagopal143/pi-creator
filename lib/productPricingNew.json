@@ -1,0 +1,466 @@
+{
+  "newPricesByProduct": {
+    "RUBIE": {
+      "48v": {
+        "areadealer": 33500,
+        "districtdealer": 33150,
+        "distributor": 32500,
+        "divisionaldistributor": 32850
+      },
+      "60v": {
+        "areadealer": 36000,
+        "districtdealer": 35650,
+        "distributor": 35000,
+        "divisionaldistributor": 35350
+      },
+      "72v": {
+        "areadealer": 38500,
+        "districtdealer": 38150,
+        "distributor": 37500,
+        "divisionaldistributor": 37850
+      },
+      "60v43ah": {
+        "areadealer": 42000,
+        "districtdealer": 41350,
+        "distributor": 40000,
+        "divisionaldistributor": 40650
+      },
+      "wobc": {
+        "areadealer": 26000,
+        "districtdealer": 25650,
+        "distributor": 25000,
+        "divisionaldistributor": 25350
+      }
+    },
+    "RAMIE": {
+      "48v": {
+        "areadealer": 36000,
+        "districtdealer": 35650,
+        "distributor": 35000,
+        "divisionaldistributor": 35350
+      },
+      "60v": {
+        "areadealer": 38500,
+        "districtdealer": 38150,
+        "distributor": 37500,
+        "divisionaldistributor": 37850
+      },
+      "72v": {
+        "areadealer": 41000,
+        "districtdealer": 40650,
+        "distributor": 40000,
+        "divisionaldistributor": 40350
+      },
+      "60v43ah": {
+        "areadealer": 44500,
+        "districtdealer": 43850,
+        "distributor": 42500,
+        "divisionaldistributor": 43150
+      },
+      "wobc": {
+        "areadealer": 28500,
+        "districtdealer": 28150,
+        "distributor": 27500,
+        "divisionaldistributor": 27850
+      }
+    },
+    "NEU": {
+      "48v": {
+        "areadealer": 35000,
+        "districtdealer": 34650,
+        "distributor": 34000,
+        "divisionaldistributor": 34350
+      },
+      "60v": {
+        "areadealer": 37500,
+        "districtdealer": 37150,
+        "distributor": 36500,
+        "divisionaldistributor": 36850
+      },
+      "72v": {
+        "areadealer": 40000,
+        "districtdealer": 39650,
+        "distributor": 39000,
+        "divisionaldistributor": 39350
+      },
+      "60v43ah": {
+        "areadealer": 43500,
+        "districtdealer": 42850,
+        "distributor": 41500,
+        "divisionaldistributor": 42150
+      },
+      "wobc": {
+        "areadealer": 27500,
+        "districtdealer": 27150,
+        "distributor": 26500,
+        "divisionaldistributor": 26850
+      }
+    },
+    "VIRAJ": {
+      "48v": {
+        "areadealer": 36500,
+        "districtdealer": 36150,
+        "distributor": 35500,
+        "divisionaldistributor": 35850
+      },
+      "60v": {
+        "areadealer": 39000,
+        "districtdealer": 38650,
+        "distributor": 38000,
+        "divisionaldistributor": 38350
+      },
+      "72v": {
+        "areadealer": 0,
+        "districtdealer": 41150,
+        "distributor": 40500,
+        "divisionaldistributor": 40850
+      },
+      "wobc": {
+        "areadealer": 29000,
+        "districtdealer": 28650,
+        "distributor": 28000,
+        "divisionaldistributor": 28350
+      }
+    },
+    "CHERRY": {
+      "48v": {
+        "areadealer": 38000,
+        "districtdealer": 37500,
+        "distributor": 36500,
+        "divisionaldistributor": 37000
+      },
+      "60v": {
+        "areadealer": 40500,
+        "districtdealer": 40000,
+        "distributor": 39000,
+        "divisionaldistributor": 39500
+      },
+      "72v": {
+        "areadealer": 43000,
+        "districtdealer": 42500,
+        "distributor": 41500,
+        "divisionaldistributor": 42000
+      },
+      "60v43ah": {
+        "areadealer": 46500,
+        "districtdealer": 45850,
+        "distributor": 44500,
+        "divisionaldistributor": 45150
+      },
+      "wobc": {
+        "areadealer": 30500,
+        "districtdealer": 30000,
+        "distributor": 29000,
+        "divisionaldistributor": 29500
+      }
+    },
+    "RAAVTA": {
+      "48v": {
+        "areadealer": 42500,
+        "districtdealer": 42000,
+        "distributor": 41000,
+        "divisionaldistributor": 41500
+      },
+      "60v": {
+        "areadealer": 45000,
+        "districtdealer": 44500,
+        "distributor": 43500,
+        "divisionaldistributor": 44000
+      },
+      "72v": {
+        "areadealer": 47500,
+        "districtdealer": 47000,
+        "distributor": 46000,
+        "divisionaldistributor": 46500
+      },
+      "60v43ah": {
+        "areadealer": 51000,
+        "districtdealer": 50350,
+        "distributor": 49000,
+        "divisionaldistributor": 49650
+      },
+      "wobc": {
+        "areadealer": 35000,
+        "districtdealer": 34500,
+        "distributor": 33500,
+        "divisionaldistributor": 34000
+      }
+    },
+    "SPARROW PLUS": {
+      "60v": {
+        "areadealer": 47500,
+        "districtdealer": 46850,
+        "distributor": 45500,
+        "divisionaldistributor": 46150
+      },
+      "72v": {
+        "areadealer": 50000,
+        "districtdealer": 49350,
+        "distributor": 48000,
+        "divisionaldistributor": 48650
+      },
+      "60v43ah": {
+        "areadealer": 53500,
+        "districtdealer": 52850,
+        "distributor": 51500,
+        "divisionaldistributor": 52150
+      },
+      "wobc": {
+        "areadealer": 37500,
+        "districtdealer": 36850,
+        "distributor": 35500,
+        "divisionaldistributor": 36150
+      }
+    },
+    "AQABA": {
+      "60v": {
+        "areadealer": 48000,
+        "districtdealer": 47350,
+        "distributor": 46000,
+        "divisionaldistributor": 46650
+      },
+      "72v": {
+        "areadealer": 50500,
+        "districtdealer": 49850,
+        "distributor": 48500,
+        "divisionaldistributor": 49150
+      },
+      "60v43ah": {
+        "areadealer": 54000,
+        "districtdealer": 53350,
+        "distributor": 52000,
+        "divisionaldistributor": 52650
+      },
+      "wobc": {
+        "areadealer": 38000,
+        "districtdealer": 37350,
+        "distributor": 36000,
+        "divisionaldistributor": 36650
+      }
+    },
+    "ASVA": {
+      "60v": {
+        "areadealer": 47500,
+        "districtdealer": 46850,
+        "distributor": 45500,
+        "divisionaldistributor": 46150
+      },
+      "72v": {
+        "areadealer": 50000,
+        "districtdealer": 49350,
+        "distributor": 48000,
+        "divisionaldistributor": 48650
+      },
+      "60v43ah": {
+        "areadealer": 53500,
+        "districtdealer": 52850,
+        "distributor": 51500,
+        "divisionaldistributor": 52150
+      },
+      "wobc": {
+        "areadealer": 37500,
+        "districtdealer": 36850,
+        "distributor": 35500,
+        "divisionaldistributor": 36150
+      }
+    },
+    "DUSTER": {
+      "60v": {
+        "areadealer": 32000,
+        "districtdealer": 31750,
+        "distributor": 31250,
+        "divisionaldistributor": 31500
+      }
+    },
+    "ZUNAID": {
+      "48v": {
+        "areadealer": 36500,
+        "districtdealer": 36000,
+        "distributor": 35000,
+        "divisionaldistributor": 35500
+      },
+      "60v": {
+        "areadealer": 39000,
+        "districtdealer": 38500,
+        "distributor": 37500,
+        "divisionaldistributor": 38000
+      },
+      "72v": {
+        "areadealer": 41500,
+        "districtdealer": 41000,
+        "distributor": 40000,
+        "divisionaldistributor": 40500
+      },
+      "60v43ah": {
+        "areadealer": 45000,
+        "districtdealer": 44350,
+        "distributor": 43000,
+        "divisionaldistributor": 43650
+      },
+      "wobc": {
+        "areadealer": 29000,
+        "districtdealer": 28500,
+        "distributor": 27500,
+        "divisionaldistributor": 28000
+      }
+    },
+    "RUSH": {
+      "60v": {
+        "areadealer": 48000,
+        "districtdealer": 47350,
+        "distributor": 46000,
+        "divisionaldistributor": 46650
+      },
+      "72v": {
+        "areadealer": 50500,
+        "districtdealer": 49850,
+        "distributor": 48500,
+        "divisionaldistributor": 49150
+      },
+      "wobc": {
+        "areadealer": 38000,
+        "districtdealer": 37350,
+        "distributor": 36000,
+        "divisionaldistributor": 36650
+      }
+    },
+    "LUCKA": {
+      "60v": {
+        "areadealer": 51500,
+        "districtdealer": 50850,
+        "distributor": 49500,
+        "divisionaldistributor": 50150
+      },
+      "72v": {
+        "areadealer": 54000,
+        "districtdealer": 53350,
+        "distributor": 52000,
+        "divisionaldistributor": 52650
+      },
+      "60v43ah": {
+        "areadealer": 57500,
+        "districtdealer": 56850,
+        "distributor": 0,
+        "divisionaldistributor": 56150
+      },
+      "wobc": {
+        "areadealer": 41500,
+        "districtdealer": 40850,
+        "distributor": 39500,
+        "divisionaldistributor": 40150
+      }
+    },
+    "RUSTER": {
+      "60v": {
+        "areadealer": 33500,
+        "districtdealer": 33250,
+        "distributor": 32750,
+        "divisionaldistributor": 33000
+      }
+    },
+    "ASHER": {
+      "60v": {
+        "areadealer": 36000,
+        "districtdealer": 35650,
+        "distributor": 35000,
+        "divisionaldistributor": 35350
+      }
+    },
+    "DRAGGER": {
+      "60v": {
+        "areadealer": 34500,
+        "districtdealer": 34150,
+        "distributor": 33500,
+        "divisionaldistributor": 33850
+      }
+    },
+    "ARSHANA": {
+      "72v": {
+        "areadealer": 54500,
+        "districtdealer": 53850,
+        "distributor": 52500,
+        "divisionaldistributor": 53150
+      },
+      "wobc": {
+        "areadealer": 42000,
+        "districtdealer": 41350,
+        "distributor": 40000,
+        "divisionaldistributor": 40650
+      }
+    }
+  },
+  "newProducts": [
+    {
+      "name": "ADDA",
+      "hsn": "87116020",
+      "cgst": 2.5,
+      "sgst": 2.5,
+      "variants": [
+        {
+          "key": "60v",
+          "label": "60V",
+          "prices": {
+            "areadealer": 0,
+            "districtdealer": 0,
+            "distributor": 0,
+            "divisionaldistributor": 0
+          },
+          "newPrices": {
+            "areadealer": 40000,
+            "districtdealer": 39750,
+            "divisionaldistributor": 39500,
+            "distributor": 39250
+          }
+        }
+      ]
+    },
+    {
+      "name": "Y1",
+      "hsn": "87116020",
+      "cgst": 2.5,
+      "sgst": 2.5,
+      "variants": [
+        {
+          "key": "60v",
+          "label": "60V",
+          "prices": {
+            "areadealer": 0,
+            "districtdealer": 0,
+            "distributor": 0,
+            "divisionaldistributor": 0
+          },
+          "newPrices": {
+            "areadealer": 50000,
+            "districtdealer": 49150,
+            "divisionaldistributor": 48350,
+            "distributor": 47500
+          }
+        }
+      ]
+    },
+    {
+      "name": "Y2",
+      "hsn": "87116020",
+      "cgst": 2.5,
+      "sgst": 2.5,
+      "variants": [
+        {
+          "key": "60v",
+          "label": "60V",
+          "prices": {
+            "areadealer": 0,
+            "districtdealer": 0,
+            "distributor": 0,
+            "divisionaldistributor": 0
+          },
+          "newPrices": {
+            "areadealer": 49500,
+            "districtdealer": 48650,
+            "divisionaldistributor": 47850,
+            "distributor": 47000
+          }
+        }
+      ]
+    }
+  ]
+}

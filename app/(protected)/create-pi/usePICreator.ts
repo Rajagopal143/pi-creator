@@ -6,7 +6,7 @@ import type { Dealer, Product, ProductVariant, ManufacturingUnit } from '@/lib/c
 import type { InvoiceCounterDTO } from '@/lib/invoiceCounterModel';
 import type { InvoicePreviewProps } from './InvoicePreview';
 import type {
-  AccessoryType, ComputedLineItem, DealerAddress, LineItemState, PriceTier, TaxType,
+  AccessoryType, ComputedLineItem, DealerAddress, LineItemState, PriceList, PriceTier, TaxType,
 } from './types';
 import {
   ACCESSORY_CHARGE, ACCESSORY_GST_RATE, DUE_DATE_OFFSET_DAYS, EMPTY_ADDRESS,
@@ -40,6 +40,8 @@ export function usePICreator({
 
   // ── Invoice meta ───────────────────────────────────────────────────────────
   const [priceTier, setPriceTier] = useState<PriceTier>('dealer');
+  // Which price list the line items are priced from (default: the old list).
+  const [priceList, setPriceList] = useState<PriceList>('old');
   const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
     manufacturingUnits.length === 1 ? manufacturingUnits[0] : null,
   );
@@ -194,6 +196,11 @@ export function usePICreator({
         if (typeof invoice.priceTier === 'string' && invoice.priceTier) {
           setPriceTier(invoice.priceTier as PriceTier);
         }
+        // Restore the price list (Old/New) the PI was priced from; legacy
+        // invoices without one keep the default 'old'.
+        if (typeof invoice.priceList === 'string' && invoice.priceList) {
+          setPriceList(invoice.priceList as PriceList);
+        }
         setTaxType((invoice.taxType as TaxType) || 'within_state');
         setLineItems(
           loadedLineItems.length > 0
@@ -242,7 +249,7 @@ export function usePICreator({
     return lineItems.map(item => {
       const product = products.find(p => p.id === item.productId);
       const variant = variants.find(v => v.id === item.variantId);
-      const rate = variant ? getVariantPrice(variant, priceTier) : 0;
+      const rate = variant ? getVariantPrice(variant, priceTier, priceList) : 0;
       const productTaxable = rate * item.qty;
       const sgstPct = product?.sgst ?? 0;
       const cgstPct = product?.cgst ?? 0;
@@ -298,7 +305,7 @@ export function usePICreator({
         totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount,
       };
     });
-  }, [lineItems, products, variants, priceTier, effectiveTaxType]);
+  }, [lineItems, products, variants, priceTier, priceList, effectiveTaxType]);
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const subTotal       = useMemo(() => computedItems.reduce((s, i) => s + i.taxableAmount, 0), [computedItems]);
@@ -397,20 +404,21 @@ export function usePICreator({
     });
   }, [effectiveAvailability, enforceStock]);
 
-  // When the price tier changes, drop any selected variant now N/A for that tier.
+  // When the price tier or list changes, drop any selected variant now N/A
+  // (price 0) under the new tier/list combination.
   useEffect(() => {
     setLineItems(prev => {
       let changed = false;
       const next = prev.map(item => {
         if (item.variantId == null) return item;
         const v = variants.find(x => x.id === item.variantId);
-        if (v && getVariantPrice(v, priceTier) > 0) return item;
+        if (v && getVariantPrice(v, priceTier, priceList) > 0) return item;
         changed = true;
         return { ...item, variantId: null };
       });
       return changed ? next : prev;
     });
-  }, [priceTier, variants]);
+  }, [priceTier, priceList, variants]);
 
   // ── Dealer search / select ─────────────────────────────────────────────────
   const handleBillToSearchChange = useCallback((v: string) => {
@@ -465,6 +473,7 @@ export function usePICreator({
         shipToDealer: effectiveShipTo,
         lineItems: computedItems,
         priceTier,
+        priceList,
         taxType: effectiveTaxType,
         subTotal,
         discount,
@@ -522,7 +531,7 @@ export function usePICreator({
     }
   }, [
     effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
-    computedItems, priceTier, effectiveTaxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
+    computedItems, priceTier, priceList, effectiveTaxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
     totalGST, totalAccessory, transportCharge, transportGST, insurance, insuranceEnabled,
     roundOff, total, fetchCounters, editInvoiceId,
   ]);
@@ -564,6 +573,7 @@ export function usePICreator({
     invoiceNumber, assignedNumber, selectedMU, setSelectedMU,
     invoiceDate, setInvoiceDate, dueDate, setDueDate,
     taxType: effectiveTaxType, setTaxType, taxTypeLocked, priceTier, setPriceTier,
+    priceList, setPriceList,
     // parties
     billTo: {
       search: billToSearch, dealer: billToDealer, addr: billToAddr,
