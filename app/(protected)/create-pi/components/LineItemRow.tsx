@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import type { Product, ProductVariant } from '@/lib/csvData';
-import type { ComputedLineItem, LineItemState, PriceList, PriceTier } from '../types';
+import type { ComputedLineItem, LineItemState, PriceTier } from '../types';
 import { getVariantPrice, formatINR } from '../utils';
 import { ProductSelect } from './ProductSelect';
 
 /** A single editable row in the line-items table. */
 export function LineItemRow({
-  item, index, products, variants, priceTier, priceList,
+  item, index, products, variants, priceTier,
   stockAvailability, stockEnforced, available, maxQty, muSelected,
   onUpdate, onRemove,
 }: {
@@ -17,8 +17,6 @@ export function LineItemRow({
   products: Product[];
   variants: ProductVariant[];
   priceTier: PriceTier;
-  /** Which price list (Old / New) the rates reflect. */
-  priceList: PriceList;
   /** productCode → committable qty (for the dropdown stock labels). */
   stockAvailability: Record<number, number>;
   /** When true, models are stock-filtered and qty is capped. */
@@ -34,11 +32,11 @@ export function LineItemRow({
 }) {
   // Qty is only editable once a model is selected for this line.
   const qtyDisabled = item.productId == null;
-  // Only variants priced for the selected tier + list are offered — N/A configs
-  // (price 0, e.g. a model that isn't on the new list) are hidden.
+  // Only variants priced for the selected tier + this row's price list are
+  // offered — N/A configs (price 0, e.g. a model not on the new list) are hidden.
   const productVariants = useMemo(
-    () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier, priceList) > 0),
-    [variants, item.productId, priceTier, priceList],
+    () => variants.filter(v => v.productId === item.productId && getVariantPrice(v, priceTier, item.priceList) > 0),
+    [variants, item.productId, priceTier, item.priceList],
   );
 
   // Clamp qty entry to the available cap when stock enforcement is on.
@@ -60,6 +58,24 @@ export function LineItemRow({
           placeholder="— Select unit first —"
           onChange={id => onUpdate(item.id, { productId: id })}
         />
+        {/* Per-row Old/New price-list toggle — overrides the PI-level default. */}
+        <div className="mt-1.5 inline-flex rounded-md border border-zinc-200 p-0.5 text-[10px] font-semibold">
+          {(['old', 'new'] as const).map(pl => (
+            <button
+              key={pl}
+              type="button"
+              onClick={() => onUpdate(item.id, { priceList: pl })}
+              title={pl === 'new' ? 'Use the new (May 2026) price list for this row' : 'Use the old price list for this row'}
+              className={`px-2 py-0.5 rounded-[3px] uppercase tracking-wide transition-colors ${
+                item.priceList === pl
+                  ? 'bg-red-700 text-white'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {pl}
+            </button>
+          ))}
+        </div>
       </td>
       <td className="py-2 px-2">
         <select

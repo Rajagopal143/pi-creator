@@ -47,8 +47,17 @@ export function usePICreator({
   );
   const [taxType, setTaxType] = useState<TaxType>('within_state');
   const [lineItems, setLineItems] = useState<LineItemState[]>([
-    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none' },
+    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old' },
   ]);
+
+  /**
+   * PI-level Old/New toggle — acts as a bulk-set: flipping it propagates to
+   * every existing line item, while each row may still override it per-item.
+   */
+  const handleSetPriceList = useCallback((p: PriceList) => {
+    setPriceList(p);
+    setLineItems(prev => prev.map(item => ({ ...item, priceList: p })));
+  }, []);
 
   // When both the manufacturing unit and the Bill To dealer are chosen, the tax
   // type is fixed by their states — same state → SGST+CGST, different → IGST.
@@ -202,6 +211,10 @@ export function usePICreator({
           setPriceList(invoice.priceList as PriceList);
         }
         setTaxType((invoice.taxType as TaxType) || 'within_state');
+        // Fall back per-row priceList to the PI-level value for legacy invoices.
+        const invoicePriceList = (typeof invoice.priceList === 'string' && invoice.priceList)
+          ? (invoice.priceList as PriceList)
+          : 'old';
         setLineItems(
           loadedLineItems.length > 0
             ? loadedLineItems.map(item => ({
@@ -210,8 +223,9 @@ export function usePICreator({
                 variantId: item.variantId,
                 qty: item.qty,
                 accessory: (item.accessory as AccessoryType) || 'none',
+                priceList: (item as { priceList?: PriceList }).priceList ?? invoicePriceList,
               }))
-            : [{ id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none' }],
+            : [{ id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old' }],
         );
         // A paid PI's quantities are already held in the stock `reserved`
         // column, so the API's "available" excludes them — capture them as the
@@ -249,7 +263,7 @@ export function usePICreator({
     return lineItems.map(item => {
       const product = products.find(p => p.id === item.productId);
       const variant = variants.find(v => v.id === item.variantId);
-      const rate = variant ? getVariantPrice(variant, priceTier, priceList) : 0;
+      const rate = variant ? getVariantPrice(variant, priceTier, item.priceList) : 0;
       const productTaxable = rate * item.qty;
       const sgstPct = product?.sgst ?? 0;
       const cgstPct = product?.cgst ?? 0;
@@ -305,7 +319,7 @@ export function usePICreator({
         totalAmount: taxableAmount + sgstAmount + cgstAmount + igstAmount,
       };
     });
-  }, [lineItems, products, variants, priceTier, priceList, effectiveTaxType]);
+  }, [lineItems, products, variants, priceTier, effectiveTaxType]);
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const subTotal       = useMemo(() => computedItems.reduce((s, i) => s + i.taxableAmount, 0), [computedItems]);
@@ -373,9 +387,9 @@ export function usePICreator({
   const addLineItem = useCallback(() => {
     setLineItems(prev => [
       ...prev,
-      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 0, accessory: 'none' },
+      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 0, accessory: 'none', priceList },
     ]);
-  }, []);
+  }, [priceList]);
 
   const removeLineItem = useCallback((id: string) => {
     setLineItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
@@ -404,21 +418,21 @@ export function usePICreator({
     });
   }, [effectiveAvailability, enforceStock]);
 
-  // When the price tier or list changes, drop any selected variant now N/A
-  // (price 0) under the new tier/list combination.
+  // When the price tier changes (or any row's priceList flips), drop selected
+  // variants that are now N/A (price 0) under the active tier/list combo.
   useEffect(() => {
     setLineItems(prev => {
       let changed = false;
       const next = prev.map(item => {
         if (item.variantId == null) return item;
         const v = variants.find(x => x.id === item.variantId);
-        if (v && getVariantPrice(v, priceTier, priceList) > 0) return item;
+        if (v && getVariantPrice(v, priceTier, item.priceList) > 0) return item;
         changed = true;
         return { ...item, variantId: null };
       });
       return changed ? next : prev;
     });
-  }, [priceTier, priceList, variants]);
+  }, [priceTier, variants]);
 
   // ── Dealer search / select ─────────────────────────────────────────────────
   const handleBillToSearchChange = useCallback((v: string) => {
@@ -435,6 +449,11 @@ export function usePICreator({
     setBillToDealer(d);
     setBillToSearch(d.orgName);
     setBillToAddr(normalizeAddress(d.billingAddress));
+    // Mirror to Ship To by default — the user can change it after if they ship
+    // to a different dealer. Bill→Ship mirroring is what almost every PI needs.
+    setShipToDealer(d);
+    setShipToSearch(d.orgName);
+    setShipToAddr(normalizeAddress(d.billingAddress));
   }, []);
 
   const handleShipToSelect = useCallback((d: Dealer) => {
@@ -573,7 +592,7 @@ export function usePICreator({
     invoiceNumber, assignedNumber, selectedMU, setSelectedMU,
     invoiceDate, setInvoiceDate, dueDate, setDueDate,
     taxType: effectiveTaxType, setTaxType, taxTypeLocked, priceTier, setPriceTier,
-    priceList, setPriceList,
+    priceList, setPriceList: handleSetPriceList,
     // parties
     billTo: {
       search: billToSearch, dealer: billToDealer, addr: billToAddr,

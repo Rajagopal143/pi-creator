@@ -16,6 +16,8 @@ export interface LineItemState {
   variantId: number | null;
   qty: number;
   accessory: AccessoryType;
+  /** Per-line override for which price list this row is priced from. */
+  priceList: PriceList;
 }
 
 /** A line item enriched with its resolved product/variant pricing and tax. */

@@ -67,9 +67,9 @@ export function LineItemsCard({
         </div>
       </div>
       <p className="text-[11px] text-gray-400 mb-3">
-        Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier
-        on the <strong className="text-gray-600">{priceList === 'new' ? 'New' : 'Old'}</strong> price list.
-        Change the dropdown to re-price every product line; switch Old/New near the dealer selection above.
+        Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier.
+        Each row has its own <strong className="text-gray-600">Old / New</strong> toggle — the global toggle
+        near the dealer selection (currently <strong className="text-gray-600">{priceList === 'new' ? 'New' : 'Old'}</strong>) bulk-sets every row.
       </p>
       {!muSelected && (
         <p className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">
@@ -128,7 +128,6 @@ export function LineItemsCard({
                   products={rowProducts}
                   variants={variants}
                   priceTier={priceTier}
-                  priceList={priceList}
                   stockAvailability={stockAvailability}
                   stockEnforced={stockEnforced}
                   available={item.productId != null ? available : undefined}
