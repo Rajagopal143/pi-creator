@@ -1,5 +1,4 @@
-import { connectDB } from '@/lib/mongodb';
-import { ProductRecord, ensureProductsSeeded } from '@/lib/products/productModel';
+import { ProductRecord } from '@/lib/products/productModel';
 import { loadManufacturingUnits } from '@/lib/csvData';
 import TransitClient from './TransitClient';
 
@@ -10,8 +9,6 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function TransitPage() {
-  await connectDB();
-  await ensureProductsSeeded();
 
   const [products, manufacturingUnits] = await Promise.all([
     ProductRecord.find({ isActive: true }).sort({ sortOrder: 1, code: 1 }).select('code name').lean(),

@@ -12,7 +12,6 @@ import newPricing from '@/lib/productPricingNew.json';
  * that dealer tier and the PI creator hides it.
  *
  * The collection is seeded once from `productPricing.json` (idempotent — see
- * `ensureProductsSeeded`). After that the DB is the source of truth, editable
  * from the Products pages.
  */
 
@@ -169,52 +168,9 @@ interface PricingProduct {
   variants: PricingVariant[];
 }
 
-/** Builds the seed product set from `productPricing.json`, enriched by the CSV. */
-function buildSeedProducts(): ProductDoc[] {
-  const csvProducts = loadProducts();
-  const byName = new Map(csvProducts.map(p => [norm(p.productName), p]));
 
-  return (pricing.products as PricingProduct[]).map((prod, index) => {
-    const csv =
-      byName.get(norm(prod.name)) ??
-      byName.get(norm(NAME_ALIASES[norm(prod.name)] ?? ''));
 
-    const cgst = prod.cgst ?? csv?.cgst ?? DEFAULT_CGST;
-    const sgst = prod.sgst ?? csv?.sgst ?? DEFAULT_SGST;
 
-    return {
-      code: index + 1,
-      name: prod.name,
-      hsn: prod.hsn || csv?.HSN || DEFAULT_HSN,
-      cgst,
-      sgst,
-      colours: csv?.colours?.length ? csv.colours : DEFAULT_COLOURS,
-      variants: prod.variants.map(v => ({
-        key: v.key,
-        label: v.label,
-        prices: {
-          areadealer: v.prices.areadealer ?? 0,
-          districtdealer: v.prices.districtdealer ?? 0,
-          distributor: v.prices.distributor ?? 0,
-          divisionaldistributor: v.prices.divisionaldistributor ?? 0,
-        },
-      })),
-      isActive: true,
-      sortOrder: index,
-    } as ProductDoc;
-  });
-}
-
-/** Idempotently inserts any missing seed products without overwriting edits. */
-export async function ensureProductsSeeded(): Promise<void> {
-  const seed = buildSeedProducts();
-  await Promise.all(
-    seed.map(p =>
-      ProductRecord.updateOne({ name: p.name }, { $setOnInsert: p }, { upsert: true }),
-    ),
-  );
-  await ensureNewPricingApplied();
-}
 
 // ─── New price list (May 2026) ────────────────────────────────────────────────────
 
@@ -239,54 +195,7 @@ interface NewPricingFile {
  *   so later manual edits to `newPrices` are never clobbered.
  * - New-only products are created once, matched by their unique name.
  */
-export async function ensureNewPricingApplied(): Promise<void> {
-  const data = newPricing as unknown as NewPricingFile;
 
-  // 1. Back-fill new prices onto products not yet seeded.
-  const pending = await ProductRecord.find({ newPricesSeeded: { $ne: true } }).lean();
-  for (const doc of pending) {
-    const byKey = data.newPricesByProduct[norm(doc.name)] ?? {};
-    const variants = (doc.variants ?? []).map(v => ({
-      key: v.key,
-      label: v.label,
-      prices: v.prices,
-      newPrices: byKey[v.key] ?? zeroTierPrices(),
-    }));
-    await ProductRecord.updateOne(
-      { _id: doc._id },
-      { $set: { variants, newPricesSeeded: true } },
-    );
-  }
-
-  // 2. Create new-list-only models (idempotent via the unique `name` index).
-  for (const np of data.newProducts) {
-    const exists = await ProductRecord.findOne({ name: np.name }).select('_id').lean();
-    if (exists) continue;
-    try {
-      const code = await nextProductCode();
-      await ProductRecord.create({
-        code,
-        name: np.name,
-        hsn: np.hsn || DEFAULT_HSN,
-        cgst: np.cgst,
-        sgst: np.sgst,
-        colours: DEFAULT_COLOURS,
-        variants: np.variants.map(v => ({
-          key: v.key,
-          label: v.label,
-          prices: v.prices ?? zeroTierPrices(),
-          newPrices: v.newPrices ?? zeroTierPrices(),
-        })),
-        isActive: true,
-        sortOrder: code,
-        newPricesSeeded: true,
-      });
-    } catch (err: unknown) {
-      // A concurrent seed won the race — the unique name index rejected the dup.
-      if (!(err instanceof Error && err.message.includes('E11000'))) throw err;
-    }
-  }
-}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 

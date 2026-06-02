@@ -7,7 +7,7 @@ import {
   type DailyStockDoc,
   type DailyStockDTO,
 } from '@/lib/products/dailyStockModel';
-import { ProductRecord, ensureProductsSeeded } from '@/lib/products/productModel';
+import { ProductRecord } from '@/lib/products/productModel';
 
 function todayISO(): string {
   return new Date().toISOString().split('T')[0];
@@ -22,8 +22,6 @@ function todayISO(): string {
  */
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
-    await ensureProductsSeeded();
     const { searchParams } = new URL(req.url);
     const muId = Number(searchParams.get('muId'));
     const date = (searchParams.get('date') || todayISO()).trim();

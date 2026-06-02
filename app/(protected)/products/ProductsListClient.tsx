@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ProductDTO } from '@/lib/products/productModel';
-import { deleteProductAction, syncNewPricesAction } from '@/lib/products/server-actions';
+import { deleteProductAction } from '@/lib/products/server-actions';
 
 /** Lowest non-zero district-dealer price across a product's variants. */
 function priceFrom(product: ProductDTO): number {
@@ -39,15 +39,7 @@ export default function ProductsListClient({ products }: { products: ProductDTO[
     });
   };
 
-  const handleSync = () => {
-    if (!confirm('Sync new prices from JSON into the database? Listed products will have their new-price tiers overwritten.')) return;
-    setSyncMsg(null);
-    startTransition(async () => {
-      const res = await syncNewPricesAction();
-      setSyncMsg(`Updated ${res.updated} • Created ${res.created}`);
-      router.refresh();
-    });
-  };
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -74,16 +66,6 @@ export default function ProductsListClient({ products }: { products: ProductDTO[
               onChange={e => setSearch(e.target.value)}
               className="w-64 max-w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
             />
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={pending}
-              className="inline-flex items-center gap-1.5 border border-zinc-300 bg-white text-zinc-800 text-sm font-medium px-3 py-2 rounded-lg hover:bg-zinc-50 disabled:opacity-50 whitespace-nowrap"
-              title="Overwrite new-price tiers in the DB from productPricingNew.json"
-            >
-              {pending ? 'Syncing…' : 'Sync New Prices'}
-            </button>
-            {syncMsg && <span className="text-xs text-emerald-700">{syncMsg}</span>}
             <Link
               href="/products/new"
               className="inline-flex items-center gap-1.5 bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-600 transition-colors whitespace-nowrap"

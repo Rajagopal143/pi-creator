@@ -1,7 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import type { Product, ProductVariant } from '@/lib/csvData';
 import {
-  ProductRecord, ensureProductsSeeded, DEFAULT_COLOURS,
+  ProductRecord, DEFAULT_COLOURS,
   type DealerTierKey, type TierPrices,
 } from './productModel';
 
@@ -32,7 +32,6 @@ const asTiers = (p: Partial<Record<DealerTierKey, number | null | undefined>> | 
 
 export async function getPricedCatalog(): Promise<PricedCatalog> {
   await connectDB();
-  await ensureProductsSeeded();
 
   const docs = await ProductRecord.find({ isActive: true })
     .sort({ sortOrder: 1, code: 1 })

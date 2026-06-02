@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation';
 import { connectDB } from '@/lib/mongodb';
 import {
   ProductRecord,
-  ensureProductsSeeded,
   nextProductCode,
   productToDTO,
   zeroTierPrices,
@@ -177,11 +176,7 @@ export async function setProductActiveAction(id: string, isActive: boolean): Pro
   revalidatePath('/create-pi');
 }
 
-/** Ensures the catalog is seeded — called by the list page on first load. */
-export async function seedProductsAction(): Promise<void> {
-  await connectDB();
-  await ensureProductsSeeded();
-}
+
 
 /** Hard-deletes a product from the catalog. */
 export async function deleteProductAction(id: string): Promise<{ ok: boolean; message?: string }> {
@@ -222,58 +217,4 @@ const normName = (s: string) => s.trim().toUpperCase();
  *   • inserts any new-only models that don't yet exist.
  * After running, the DB is the source of truth.
  */
-export async function syncNewPricesAction(): Promise<{ ok: boolean; updated: number; created: number }> {
-  await connectDB();
-  const data = newPricing as unknown as NewPricingFile;
 
-  let updated = 0;
-  const docs = await ProductRecord.find().lean();
-  for (const doc of docs) {
-    const byKey = data.newPricesByProduct[normName(doc.name)];
-    if (!byKey) continue;
-    const variants = (doc.variants ?? []).map(v => ({
-      key: v.key,
-      label: v.label,
-      prices: v.prices,
-      newPrices: byKey[v.key] ?? zeroTierPrices(),
-    }));
-    await ProductRecord.updateOne(
-      { _id: doc._id },
-      { $set: { variants, newPricesSeeded: true } },
-    );
-    updated++;
-  }
-
-  let created = 0;
-  for (const np of data.newProducts) {
-    const exists = await ProductRecord.findOne({ name: np.name }).select('_id').lean();
-    if (exists) continue;
-    try {
-      const code = await nextProductCode();
-      await ProductRecord.create({
-        code,
-        name: np.name,
-        hsn: np.hsn || DEFAULT_HSN,
-        cgst: np.cgst ?? 2.5,
-        sgst: np.sgst ?? 2.5,
-        colours: DEFAULT_COLOURS,
-        variants: np.variants.map(v => ({
-          key: v.key,
-          label: v.label,
-          prices: v.prices ?? zeroTierPrices(),
-          newPrices: v.newPrices ?? zeroTierPrices(),
-        })),
-        isActive: true,
-        sortOrder: code,
-        newPricesSeeded: true,
-      });
-      created++;
-    } catch (err) {
-      if (!(err instanceof Error && err.message.includes('E11000'))) throw err;
-    }
-  }
-
-  revalidatePath('/products');
-  revalidatePath('/create-pi');
-  return { ok: true, updated, created };
-}

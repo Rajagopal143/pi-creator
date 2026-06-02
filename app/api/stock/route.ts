@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Stock, StockLog, stockToDTO } from '@/lib/products/stockModel';
-import { ProductRecord, ensureProductsSeeded } from '@/lib/products/productModel';
+import { ProductRecord } from '@/lib/products/productModel';
 
 /**
  * Stock list — joins each `Stock` row with the product/variant label from the
@@ -11,7 +11,6 @@ import { ProductRecord, ensureProductsSeeded } from '@/lib/products/productModel
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    await ensureProductsSeeded();
     const { searchParams } = new URL(req.url);
 
     const muId = Number(searchParams.get('muId'));
