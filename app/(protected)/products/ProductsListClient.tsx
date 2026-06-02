@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ProductDTO } from '@/lib/products/productModel';
+import { deleteProductAction, syncNewPricesAction } from '@/lib/products/server-actions';
 
 /** Lowest non-zero district-dealer price across a product's variants. */
 function priceFrom(product: ProductDTO): number {
@@ -18,6 +20,34 @@ function formatINR(n: number): string {
 
 export default function ProductsListClient({ products }: { products: ProductDTO[] }) {
   const [search, setSearch] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const handleDelete = (p: ProductDTO) => {
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    setBusyId(p.id);
+    startTransition(async () => {
+      const res = await deleteProductAction(p.id);
+      setBusyId(null);
+      if (!res.ok) {
+        alert(res.message || 'Failed to delete product.');
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const handleSync = () => {
+    if (!confirm('Sync new prices from JSON into the database? Listed products will have their new-price tiers overwritten.')) return;
+    setSyncMsg(null);
+    startTransition(async () => {
+      const res = await syncNewPricesAction();
+      setSyncMsg(`Updated ${res.updated} • Created ${res.created}`);
+      router.refresh();
+    });
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -44,6 +74,16 @@ export default function ProductsListClient({ products }: { products: ProductDTO[
               onChange={e => setSearch(e.target.value)}
               className="w-64 max-w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
             />
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 border border-zinc-300 bg-white text-zinc-800 text-sm font-medium px-3 py-2 rounded-lg hover:bg-zinc-50 disabled:opacity-50 whitespace-nowrap"
+              title="Overwrite new-price tiers in the DB from productPricingNew.json"
+            >
+              {pending ? 'Syncing…' : 'Sync New Prices'}
+            </button>
+            {syncMsg && <span className="text-xs text-emerald-700">{syncMsg}</span>}
             <Link
               href="/products/new"
               className="inline-flex items-center gap-1.5 bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-600 transition-colors whitespace-nowrap"
@@ -104,12 +144,22 @@ export default function ProductsListClient({ products }: { products: ProductDTO[
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <Link
-                            href={`/products/${p.id}/edit`}
-                            className="text-xs text-red-700 hover:text-red-800 font-medium border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
-                          >
-                            Edit
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/products/${p.id}/edit`}
+                              className="text-xs text-red-700 hover:text-red-800 font-medium border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(p)}
+                              disabled={busyId === p.id}
+                              className="text-xs text-zinc-700 hover:text-red-700 font-medium border border-zinc-200 px-3 py-1 rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors whitespace-nowrap disabled:opacity-50"
+                            >
+                              {busyId === p.id ? '…' : 'Delete'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

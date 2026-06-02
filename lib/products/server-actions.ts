@@ -9,11 +9,14 @@ import {
   ensureProductsSeeded,
   nextProductCode,
   productToDTO,
+  zeroTierPrices,
   DEFAULT_COLOURS,
+  DEFAULT_HSN,
   type ProductDTO,
   type ProductVariantSub,
   type TierPrices,
 } from './productModel';
+import newPricing from '@/lib/productPricingNew.json';
 import type { ProductFormState } from './formState';
 
 // ─── Reads ──────────────────────────────────────────────────────────────────────
@@ -178,4 +181,99 @@ export async function setProductActiveAction(id: string, isActive: boolean): Pro
 export async function seedProductsAction(): Promise<void> {
   await connectDB();
   await ensureProductsSeeded();
+}
+
+/** Hard-deletes a product from the catalog. */
+export async function deleteProductAction(id: string): Promise<{ ok: boolean; message?: string }> {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return { ok: false, message: 'Invalid product reference.' };
+  }
+  await connectDB();
+  const res = await ProductRecord.deleteOne({ _id: id });
+  if (res.deletedCount === 0) return { ok: false, message: 'Product not found.' };
+
+  revalidatePath('/products');
+  revalidatePath('/create-pi');
+  revalidatePath('/stock');
+  revalidatePath('/transit');
+  return { ok: true };
+}
+
+// ─── New-price sync (JSON → DB, one-shot) ─────────────────────────────────────
+
+interface NewPricingFile {
+  newPricesByProduct: Record<string, Record<string, TierPrices>>;
+  newProducts: Array<{
+    name: string;
+    hsn?: string;
+    cgst?: number;
+    sgst?: number;
+    variants: Array<{ key: string; label: string; prices?: TierPrices; newPrices?: TierPrices }>;
+  }>;
+}
+
+const normName = (s: string) => s.trim().toUpperCase();
+
+/**
+ * Pushes `productPricingNew.json` into the DB unconditionally:
+ *   • for each existing product whose name matches a JSON entry, overwrite
+ *     every variant's `newPrices` with the JSON value (variants not listed get
+ *     zeroed so removed price tiers don't linger);
+ *   • inserts any new-only models that don't yet exist.
+ * After running, the DB is the source of truth.
+ */
+export async function syncNewPricesAction(): Promise<{ ok: boolean; updated: number; created: number }> {
+  await connectDB();
+  const data = newPricing as unknown as NewPricingFile;
+
+  let updated = 0;
+  const docs = await ProductRecord.find().lean();
+  for (const doc of docs) {
+    const byKey = data.newPricesByProduct[normName(doc.name)];
+    if (!byKey) continue;
+    const variants = (doc.variants ?? []).map(v => ({
+      key: v.key,
+      label: v.label,
+      prices: v.prices,
+      newPrices: byKey[v.key] ?? zeroTierPrices(),
+    }));
+    await ProductRecord.updateOne(
+      { _id: doc._id },
+      { $set: { variants, newPricesSeeded: true } },
+    );
+    updated++;
+  }
+
+  let created = 0;
+  for (const np of data.newProducts) {
+    const exists = await ProductRecord.findOne({ name: np.name }).select('_id').lean();
+    if (exists) continue;
+    try {
+      const code = await nextProductCode();
+      await ProductRecord.create({
+        code,
+        name: np.name,
+        hsn: np.hsn || DEFAULT_HSN,
+        cgst: np.cgst ?? 2.5,
+        sgst: np.sgst ?? 2.5,
+        colours: DEFAULT_COLOURS,
+        variants: np.variants.map(v => ({
+          key: v.key,
+          label: v.label,
+          prices: v.prices ?? zeroTierPrices(),
+          newPrices: v.newPrices ?? zeroTierPrices(),
+        })),
+        isActive: true,
+        sortOrder: code,
+        newPricesSeeded: true,
+      });
+      created++;
+    } catch (err) {
+      if (!(err instanceof Error && err.message.includes('E11000'))) throw err;
+    }
+  }
+
+  revalidatePath('/products');
+  revalidatePath('/create-pi');
+  return { ok: true, updated, created };
 }
