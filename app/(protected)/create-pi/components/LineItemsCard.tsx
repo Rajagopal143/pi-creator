@@ -1,19 +1,23 @@
 'use client';
 
 import type { Product, ProductVariant } from '@/lib/csvData';
-import type { ComputedLineItem, LineItemState, PriceList, PriceTier } from '../types';
+import type { ComputedLineItem, LineItemState, PIType, PriceList, PriceTier } from '../types';
 import { PRICE_TIERS } from '../constants';
 import { LineItemRow } from './LineItemRow';
 
-const HEADERS = [
+const VEHICLE_HEADERS = [
   '#', 'Model', 'Variant', 'Accessory', 'Qty',
   'Unit Rate', 'Rate (incl. GST)', 'Line Total',
 ];
+const ACCESSORY_HEADERS = [
+  '#', 'Name', 'Model', 'Type', 'Qty',
+  'Unit Rate', 'Rate (incl. GST)', 'Line Total',
+];
 
-/** "Line Items" card — price-tier selector plus the editable items table. */
+/** "Line Items" card — PI-type toggle, price-tier selector, and the editable items table. */
 export function LineItemsCard({
-  items, products, variants, priceTier, priceList, stockAvailability, stockEnforced, stockLoading, muSelected,
-  onPriceTierChange, onUpdateItem, onRemoveItem, onAddItem,
+  items, products, variants, priceTier, priceList, piType, stockAvailability, stockEnforced, stockLoading, muSelected,
+  onPriceTierChange, onPiTypeChange, onUpdateItem, onRemoveItem, onAddItem,
 }: {
   items: ComputedLineItem[];
   products: Product[];
@@ -21,6 +25,8 @@ export function LineItemsCard({
   priceTier: PriceTier;
   /** Which price list (Old / New) the rates reflect. */
   priceList: PriceList;
+  /** PI mode — drives row shape and which headers/buttons render. */
+  piType: PIType;
   /** productCode → committable qty at the selected MU. */
   stockAvailability: Record<number, number>;
   /** When true, only in-stock models are offered and qty is capped to stock. */
@@ -30,10 +36,13 @@ export function LineItemsCard({
   /** A manufacturing unit must be chosen before models can be picked. */
   muSelected: boolean;
   onPriceTierChange: (t: PriceTier) => void;
+  onPiTypeChange: (t: PIType) => void;
   onUpdateItem: (id: string, updates: Partial<LineItemState>) => void;
   onRemoveItem: (id: string) => void;
   onAddItem: () => void;
 }) {
+  const isAccessoryPI = piType === 'accessory';
+  const HEADERS = isAccessoryPI ? ACCESSORY_HEADERS : VEHICLE_HEADERS;
   const totalQty = items.reduce((sum, i) => sum + (i.qty || 0), 0);
 
   // Models with available stock (when enforcing). The currently-selected model
@@ -52,7 +61,27 @@ export function LineItemsCard({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="mb-4 pb-2 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+          {/* PI-level Vehicle / Accessory mode toggle. */}
+          <div className="inline-flex rounded-md border border-zinc-300 p-0.5 text-[11px] font-semibold">
+            {(['vehicle', 'accessory'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onPiTypeChange(t)}
+                title={t === 'accessory'
+                  ? 'Accessory PI — every row is an ELECTRIC SCOOTER ACCESSORY (Steel ₹1,950 / Black ₹1,450 + 18% GST).'
+                  : 'Vehicle PI — model + variant + optional accessory add-on.'}
+                className={`px-3 py-1 rounded-[3px] uppercase tracking-wide transition-colors ${
+                  piType === t ? 'bg-red-700 text-white' : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-gray-500">Price for Dealer Type</label>
           <select
@@ -66,11 +95,19 @@ export function LineItemsCard({
           </select>
         </div>
       </div>
-      <p className="text-[11px] text-gray-400 mb-3">
-        Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier.
-        Each row has its own <strong className="text-gray-600">Old / New</strong> toggle — the global toggle
-        near the dealer selection (currently <strong className="text-gray-600">{priceList === 'new' ? 'New' : 'Old'}</strong>) bulk-sets every row.
-      </p>
+      {isAccessoryPI ? (
+        <p className="text-[11px] text-gray-400 mb-3">
+          Accessory PI — every row is sold as <strong className="text-gray-600">ELECTRIC SCOOTER ACCESSORY</strong>.
+          Pick the vehicle model and choose <strong className="text-gray-600">Steel</strong> (₹1,950) or
+          <strong className="text-gray-600"> Black</strong> (₹1,450) — both add 18% GST.
+        </p>
+      ) : (
+        <p className="text-[11px] text-gray-400 mb-3">
+          Prices below are shown for the <strong className="text-gray-600 capitalize">{priceTier}</strong> tier.
+          Each row has its own <strong className="text-gray-600">Old / New</strong> toggle — the global toggle
+          near the dealer selection (currently <strong className="text-gray-600">{priceList === 'new' ? 'New' : 'Old'}</strong>) bulk-sets every row.
+        </p>
+      )}
       {!muSelected && (
         <p className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">
           Select a manufacturing unit above to choose models for the line items.
@@ -149,7 +186,7 @@ export function LineItemsCard({
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Add Item
+          {isAccessoryPI ? 'Add Accessory' : 'Add Item'}
         </button>
         <span className="text-sm text-gray-500">
           Total Qty: <span className="font-semibold text-gray-900">{totalQty}</span>

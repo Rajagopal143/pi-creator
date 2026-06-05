@@ -35,11 +35,17 @@ export interface PreviewDealer {
 }
 
 export type AccessoryType = 'none' | 'black' | 'steel';
+export type LineItemKind = 'vehicle' | 'accessory';
+
+/** Label shown in the MODEL column for accessory-only rows. */
+export const ACCESSORY_PI_LABEL = 'ELECTRIC SCOOTER ACCESSORY';
 
 export interface PreviewLineItem {
   id: string;
   productName: string;
   variantName: string;
+  /** 'vehicle' (default) renders the usual product/variant; 'accessory' overrides them. */
+  kind?: LineItemKind;
   HSN: string;
   qty: number;
   rate: number;
@@ -61,8 +67,13 @@ export interface PreviewLineItem {
   totalAmount: number;
 }
 
+/** PI mode — drives the print-template column headers. */
+export type PIType = 'vehicle' | 'accessory';
+
 export interface InvoicePreviewProps {
   invoiceNumber: string;
+  /** Vehicle PI (default) keeps the legacy layout; accessory PI uses NAME/MODEL/TYPE. */
+  piType?: PIType;
   /** When true the invoice-number field is masked — the number is only revealed after save. */
   hideInvoiceNumber?: boolean;
   invoiceDate: string;
@@ -127,6 +138,7 @@ export default function InvoicePreview({
   manufacturingUnit,
   dealer,
   shipToDealer,
+  piType = 'vehicle',
   items,
   taxType,
   subTotal,
@@ -145,16 +157,29 @@ export default function InvoicePreview({
   const isOtherState = taxType === 'other_state';
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const totalLineAmount = items.reduce((s, i) => s + i.totalAmount, 0);
-  const hasAccessory = items.some(i => i.accessory && i.accessory !== 'none');
+  const isAccessoryPI = piType === 'accessory';
 
-  // Column headers — the ACCESSORY column is dropped when no item has an accessory.
-  const headers = [
-    '#', 'MODEL', 'VARIANT',
-    ...(hasAccessory ? ['ACCESSORY'] : []),
-    'HSN', 'QTY', 'RATE', 'RATE (INCL GST)',
-    ...(isOtherState ? ['IGST%', 'IGST'] : ['SGST%', 'SGST', 'CGST%', 'CGST']),
-    'AMOUNT',
-  ];
+  // Vehicle PI: ACCESSORY column appears when any vehicle row has a Black/Steel add-on.
+  // Accessory PI: there is no ACCESSORY column — the type sits in the TYPE column.
+  const hasAccessory = !isAccessoryPI && items.some(
+    i => i.kind !== 'accessory' && i.accessory && i.accessory !== 'none',
+  );
+
+  // Column headers — accessory PI replaces MODEL/VARIANT with NAME/MODEL/TYPE.
+  const headers = isAccessoryPI
+    ? [
+        '#', 'NAME', 'MODEL', 'TYPE',
+        'HSN', 'QTY', 'RATE', 'RATE (INCL GST)',
+        ...(isOtherState ? ['IGST%', 'IGST'] : ['SGST%', 'SGST', 'CGST%', 'CGST']),
+        'AMOUNT',
+      ]
+    : [
+        '#', 'MODEL', 'VARIANT',
+        ...(hasAccessory ? ['ACCESSORY'] : []),
+        'HSN', 'QTY', 'RATE', 'RATE (INCL GST)',
+        ...(isOtherState ? ['IGST%', 'IGST'] : ['SGST%', 'SGST', 'CGST%', 'CGST']),
+        'AMOUNT',
+      ];
   const RIGHT_ALIGNED = ['QTY', 'RATE', 'RATE (INCL GST)', 'SGST%', 'SGST', 'CGST%', 'CGST', 'IGST%', 'IGST', 'AMOUNT'];
 
   // Ship To is a separate dealer; legacy invoices fall back to the Bill To dealer.
@@ -275,24 +300,39 @@ export default function InvoicePreview({
               const rate = item.displayRate ?? item.rate;
               const rateWithGst =
                 item.displayRateWithGst ?? item.rateWithGst ?? item.rate + (item.rate * item.igstPct) / 100;
+              const accessoryTypeLabel = accessory === 'steel'
+                ? 'STEEL'
+                : accessory === 'black'
+                  ? 'BLACK'
+                  : '—';
               return (
               <tr key={item.id} className="border-b border-gray-100">
                 <td className="px-2 py-1.5">{idx + 1}</td>
-                <td className="px-2 py-1.5 font-semibold uppercase">{item.productName || '—'}</td>
-                <td className="px-2 py-1.5 uppercase">{item.variantName || '—'}</td>
-                {hasAccessory && (
-                  <td className="px-2 py-1.5">
-                    {accessory === 'none' ? (
-                      <span className="text-gray-400">—</span>
-                    ) : (
-                      <span className="font-medium">
-                        {ACCESSORY_LABEL[accessory]}
-                        <span className="block text-[8px] text-gray-500">
-                          + {formatINR(accessoryCharge)} (pre-tax)
-                        </span>
-                      </span>
+                {isAccessoryPI ? (
+                  <>
+                    <td className="px-2 py-1.5 font-semibold uppercase">{ACCESSORY_PI_LABEL}</td>
+                    <td className="px-2 py-1.5 uppercase">{item.productName || '—'}</td>
+                    <td className="px-2 py-1.5 uppercase">{accessoryTypeLabel}</td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-2 py-1.5 font-semibold uppercase">{item.productName || '—'}</td>
+                    <td className="px-2 py-1.5 uppercase">{item.variantName || '—'}</td>
+                    {hasAccessory && (
+                      <td className="px-2 py-1.5">
+                        {accessory === 'none' ? (
+                          <span className="text-gray-400">—</span>
+                        ) : (
+                          <span className="font-medium">
+                            {ACCESSORY_LABEL[accessory]}
+                            <span className="block text-[8px] text-gray-500">
+                              + {formatINR(accessoryCharge)} (pre-tax)
+                            </span>
+                          </span>
+                        )}
+                      </td>
                     )}
-                  </td>
+                  </>
                 )}
                 <td className="px-2 py-1.5">{item.HSN || '—'}</td>
                 <td className="px-2 py-1.5 text-right">{item.qty}</td>
@@ -322,7 +362,7 @@ export default function InvoicePreview({
           {items.length > 0 && (
             <tr className="border-t-2 border-gray-800 font-semibold bg-gray-50">
               <td className="px-2 py-2 text-[10px]">Totals</td>
-              <td colSpan={hasAccessory ? 4 : 3} />
+              <td colSpan={isAccessoryPI ? 4 : hasAccessory ? 4 : 3} />
               <td className="px-2 py-2 text-right text-[10px]">{totalQty}</td>
               <td className="px-2 py-2 text-right text-[10px]">{formatINR(subTotal)}</td>
               <td />

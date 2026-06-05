@@ -78,6 +78,8 @@ export default function PICreator(props: PICreatorInput) {
           onPriceTierChange={pi.setPriceTier}
           onUpdateItem={pi.updateLineItem}
           onRemoveItem={pi.removeLineItem}
+          piType={pi.piType}
+          onPiTypeChange={pi.setPiType}
           onAddItem={pi.addLineItem}
         />
 

@@ -23,6 +23,19 @@ export const ACCESSORY_CHARGE: Record<AccessoryType, number> = {
 };
 
 /**
+ * Standalone-accessory line items use a different (newer) price book — the
+ * figures are quoted GST-EXCLUSIVE at 18%.
+ *   • Black = ₹1,450 + 18% GST
+ *   • Steel = ₹1,950 + 18% GST
+ */
+export const ACCESSORY_ONLY_GST_RATE = 18;
+export const ACCESSORY_ONLY_BASE_PRICE: Record<AccessoryType, number> = {
+  none: 0,
+  black: 1450,
+  steel: 1950,
+};
+
+/**
  * Price tiers map to the four dealer price-list PDFs. The internal `PriceTier`
  * keys are kept (they drive `ProductVariant` price fields), only the labels
  * reflect the real dealer types.

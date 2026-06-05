@@ -3,6 +3,22 @@ import type { Dealer } from '@/lib/csvData';
 // ─── Domain types shared across the PI creator ──────────────────────────────────
 
 export type AccessoryType = 'none' | 'black' | 'steel';
+/**
+ * Line-item kind:
+ *   • 'vehicle'   — pick a model + variant (the long-standing flow). The row's
+ *                   accessory checkbox is optional and adds a Black/Steel
+ *                   add-on at the legacy +₹1,000 / +₹1,500 (5% GST) rates.
+ *   • 'accessory' — accessory-only row. The product is picked for labelling
+ *                   (which vehicle the accessory is for); no variant or
+ *                   vehicle price applies. Steel = ₹1,950, Black = ₹1,450,
+ *                   both + 18% GST per unit.
+ */
+export type LineItemKind = 'vehicle' | 'accessory';
+/**
+ * PI type — drives both the line-item shape (vehicle rows vs. accessory rows)
+ * and the print-template column headers.
+ */
+export type PIType = 'vehicle' | 'accessory';
 export type PriceTier = 'dealer' | 'distributor' | 'subdealer' | 'areadealer';
 /** Which price list the line items are priced from. */
 export type PriceList = 'old' | 'new';
@@ -18,6 +34,8 @@ export interface LineItemState {
   accessory: AccessoryType;
   /** Per-line override for which price list this row is priced from. */
   priceList: PriceList;
+  /** What this row represents — a vehicle (default) or a standalone accessory. */
+  kind: LineItemKind;
 }
 
 /** A line item enriched with its resolved product/variant pricing and tax. */

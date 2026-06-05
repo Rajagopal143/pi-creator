@@ -133,9 +133,40 @@
    shadcn sidebar outer wrapper also reserves a gap div, so `display: none` on
    the outer slot is what actually removes the empty space on the printed page. */
 @media print {
+  /* A4 page with a tight, even margin so the invoice fills the sheet. */
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+  html, body {
+    width: 210mm;
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Preserve every background / border colour exactly as the on-screen preview. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
   [data-slot="sidebar"],
   [data-slot="sidebar-gap"],
   [data-slot="sidebar-container"] {
     display: none !important;
   }
+  /* Sonner toast container — hide so toasts (e.g. "Invoice saved") don't print. */
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+  /* The print-only invoice wrapper takes the full printable width and avoids
+     breaking rows across pages awkwardly. */
+  .print\:block {
+    width: 100% !important;
+  }
+  table { page-break-inside: auto; }
+  tr    { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
 }

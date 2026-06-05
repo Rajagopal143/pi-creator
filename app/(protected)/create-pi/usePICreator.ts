@@ -6,11 +6,11 @@ import type { Dealer, Product, ProductVariant, ManufacturingUnit } from '@/lib/c
 import type { InvoiceCounterDTO } from '@/lib/invoiceCounterModel';
 import type { InvoicePreviewProps } from './InvoicePreview';
 import type {
-  AccessoryType, ComputedLineItem, DealerAddress, LineItemState, PriceList, PriceTier, TaxType,
+  AccessoryType, ComputedLineItem, DealerAddress, LineItemKind, LineItemState, PIType, PriceList, PriceTier, TaxType,
 } from './types';
 import {
-  ACCESSORY_CHARGE, ACCESSORY_GST_RATE, DUE_DATE_OFFSET_DAYS, EMPTY_ADDRESS,
-  INSURANCE_GST_RATE, INSURANCE_RATE, TRANSPORT_GST_RATE,
+  ACCESSORY_CHARGE, ACCESSORY_GST_RATE, ACCESSORY_ONLY_BASE_PRICE, ACCESSORY_ONLY_GST_RATE,
+  DUE_DATE_OFFSET_DAYS, EMPTY_ADDRESS, INSURANCE_GST_RATE, INSURANCE_RATE, TRANSPORT_GST_RATE,
 } from './constants';
 import { addDaysISO, getVariantPrice, normalizeAddress, todayISO } from './utils';
 
@@ -46,9 +46,30 @@ export function usePICreator({
     manufacturingUnits.length === 1 ? manufacturingUnits[0] : null,
   );
   const [taxType, setTaxType] = useState<TaxType>('within_state');
+  const [piType, setPiTypeState] = useState<PIType>('vehicle');
   const [lineItems, setLineItems] = useState<LineItemState[]>([
-    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old' },
+    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old', kind: 'vehicle' },
   ]);
+
+  /**
+   * Toggling the PI type rewrites every line item to match: vehicle rows clear
+   * the standalone-accessory selection; accessory rows clear the variant and
+   * seed Steel as the default type so the row is immediately priceable.
+   */
+  const setPiType = useCallback((next: PIType) => {
+    setPiTypeState(next);
+    setLineItems(prev => prev.map(item => {
+      if (next === 'accessory') {
+        return {
+          ...item,
+          kind: 'accessory',
+          variantId: null,
+          accessory: (item.accessory === 'black' || item.accessory === 'steel') ? item.accessory : 'steel',
+        };
+      }
+      return { ...item, kind: 'vehicle', accessory: 'none' };
+    }));
+  }, []);
 
   /**
    * PI-level Old/New toggle — acts as a bulk-set: flipping it propagates to
@@ -215,18 +236,23 @@ export function usePICreator({
         const invoicePriceList = (typeof invoice.priceList === 'string' && invoice.priceList)
           ? (invoice.priceList as PriceList)
           : 'old';
-        setLineItems(
-          loadedLineItems.length > 0
-            ? loadedLineItems.map(item => ({
-                id: item.id,
-                productId: item.productId,
-                variantId: item.variantId,
-                qty: item.qty,
-                accessory: (item.accessory as AccessoryType) || 'none',
-                priceList: (item as { priceList?: PriceList }).priceList ?? invoicePriceList,
-              }))
-            : [{ id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old' }],
-        );
+        const restoredItems: LineItemState[] = loadedLineItems.length > 0
+          ? loadedLineItems.map(item => ({
+              id: item.id,
+              productId: item.productId,
+              variantId: item.variantId,
+              qty: item.qty,
+              accessory: (item.accessory as AccessoryType) || 'none',
+              priceList: (item as { priceList?: PriceList }).priceList ?? invoicePriceList,
+              kind: ((item as { kind?: LineItemKind }).kind ?? 'vehicle'),
+            }))
+          : [{ id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old', kind: 'vehicle' }];
+        setLineItems(restoredItems);
+        // Derive PI type from the rows — an all-accessory invoice is an accessory PI.
+        const restoredPiType: PIType = restoredItems.length > 0 && restoredItems.every(i => i.kind === 'accessory')
+          ? 'accessory'
+          : 'vehicle';
+        setPiTypeState(restoredPiType);
         // A paid PI's quantities are already held in the stock `reserved`
         // column, so the API's "available" excludes them — capture them as the
         // edit baseline to add back, keeping this PI's own allocation usable.
@@ -262,6 +288,43 @@ export function usePICreator({
   const computedItems = useMemo<ComputedLineItem[]>(() => {
     return lineItems.map(item => {
       const product = products.find(p => p.id === item.productId);
+
+      // ─ Accessory-only row ────────────────────────────────────────────────
+      // No vehicle price, no variant; the row prices a standalone Black/Steel
+      // accessory at ₹1,450 / ₹1,950 + 18% GST per unit.
+      if (item.kind === 'accessory') {
+        const basePerUnit = ACCESSORY_ONLY_BASE_PRICE[item.accessory] ?? 0;
+        const accessoryCharge = basePerUnit * item.qty;
+        const accessoryGst = (accessoryCharge * ACCESSORY_ONLY_GST_RATE) / 100;
+        const sgstPct = ACCESSORY_ONLY_GST_RATE / 2;
+        const cgstPct = ACCESSORY_ONLY_GST_RATE / 2;
+        const igstPct = ACCESSORY_ONLY_GST_RATE;
+        const sgstAmount = effectiveTaxType === 'within_state' ? accessoryGst / 2 : 0;
+        const cgstAmount = effectiveTaxType === 'within_state' ? accessoryGst / 2 : 0;
+        const igstAmount = effectiveTaxType === 'other_state' ? accessoryGst : 0;
+        const displayRate = basePerUnit;
+        const displayRateWithGst = basePerUnit * (1 + ACCESSORY_ONLY_GST_RATE / 100);
+        return {
+          ...item,
+          productName: product?.productName ?? '',
+          variantName: '',
+          HSN: product?.HSN ?? '',
+          rate: 0,
+          rateWithGst: 0,
+          displayRate,
+          displayRateWithGst,
+          sgstPct,
+          cgstPct,
+          igstPct,
+          sgstAmount,
+          cgstAmount,
+          igstAmount,
+          taxableAmount: accessoryCharge,
+          accessoryCharge,
+          totalAmount: accessoryCharge + sgstAmount + cgstAmount + igstAmount,
+        };
+      }
+
       const variant = variants.find(v => v.id === item.variantId);
       const rate = variant ? getVariantPrice(variant, priceTier, item.priceList) : 0;
       const productTaxable = rate * item.qty;
@@ -371,7 +434,8 @@ export function usePICreator({
         }
         // Cap qty to the product's available stock minus what other rows of
         // the same product already consume, so the PI total never exceeds it.
-        if (enforceStock && updated.productId != null) {
+        // Accessory-only rows never consume vehicle stock.
+        if (enforceStock && updated.productId != null && updated.kind !== 'accessory') {
           const available = effectiveAvailability[updated.productId] ?? 0;
           const usedByOthers = prev
             .filter(i => i.id !== id && i.productId === updated.productId)
@@ -384,12 +448,18 @@ export function usePICreator({
     );
   }, [enforceStock, effectiveAvailability]);
 
+  /**
+   * Adds a row matching the current PI type — accessory PIs default the row to
+   * the Steel type so it's immediately priceable, vehicle PIs start blank.
+   */
   const addLineItem = useCallback(() => {
     setLineItems(prev => [
       ...prev,
-      { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 0, accessory: 'none', priceList },
+      piType === 'accessory'
+        ? { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 0, accessory: 'steel', priceList, kind: 'accessory' }
+        : { id: `item-${Date.now()}`, productId: null, variantId: null, qty: 0, accessory: 'none', priceList, kind: 'vehicle' },
     ]);
-  }, [priceList]);
+  }, [piType, priceList]);
 
   const removeLineItem = useCallback((id: string) => {
     setLineItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
@@ -406,6 +476,8 @@ export function usePICreator({
       const usage: Record<number, number> = {};
       const next = prev.map(item => {
         if (item.productId == null) return item;
+        // Accessory-only rows don't consume vehicle stock.
+        if (item.kind === 'accessory') return item;
         const available = effectiveAvailability[item.productId] ?? 0;
         const already = usage[item.productId] ?? 0;
         const cap = Math.max(0, available - already);
@@ -565,6 +637,7 @@ export function usePICreator({
     manufacturingUnit: selectedMU,
     dealer: effectiveBillTo,
     shipToDealer: effectiveShipTo,
+    piType,
     items: computedItems,
     taxType: effectiveTaxType,
     subTotal,
@@ -603,6 +676,7 @@ export function usePICreator({
       onSearchChange: handleShipToSearchChange, onSelect: handleShipToSelect, onAddrChange: setShipToAddr,
     },
     // line items
+    piType, setPiType,
     computedItems, updateLineItem, addLineItem, removeLineItem,
     // stock availability (for the line-item dropdown + qty caps)
     stockAvailability: effectiveAvailability, stockEnforced: enforceStock, stockLoading: availabilityLoading,
