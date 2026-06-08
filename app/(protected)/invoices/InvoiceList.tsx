@@ -193,6 +193,10 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [deleteInvoice, setDeleteInvoice] = useState<SavedInvoice | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [dispatchDateInvoice, setDispatchDateInvoice] = useState<SavedInvoice | null>(null);
+  const [dispatchDateValue, setDispatchDateValue] = useState('');
+  const [savingDispatchDate, setSavingDispatchDate] = useState(false);
+
   // Builds the shared query string for both the list fetch and the export.
   const buildParams = useCallback((extra?: Record<string, string>) => {
     const params = new URLSearchParams();
@@ -288,6 +292,32 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
       toast.error(e instanceof Error ? e.message : 'Failed to delete invoice');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const openDispatchDateModal = (inv: SavedInvoice) => {
+    setDispatchDateInvoice(inv);
+    setDispatchDateValue(inv.dispatchDate || '');
+  };
+
+  const handleSaveDispatchDate = async () => {
+    if (!dispatchDateInvoice?._id) return;
+    setSavingDispatchDate(true);
+    try {
+      const res = await fetch(`/api/invoices/${String(dispatchDateInvoice._id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dispatchDate: dispatchDateValue }),
+      });
+      const json = await res.json() as { success: boolean; message?: string };
+      if (!json.success) throw new Error(json.message || 'Failed to save dispatch date');
+      toast.success('Dispatch date saved.');
+      setDispatchDateInvoice(null);
+      await fetchInvoices();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save dispatch date');
+    } finally {
+      setSavingDispatchDate(false);
     }
   };
 
@@ -521,6 +551,9 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                                 Record First Payment
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem onClick={() => openDispatchDateModal(inv)}>
+                              Set Dispatch Date
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openStatusEditor(inv)}>
                               Update Status
                             </DropdownMenuItem>
@@ -640,6 +673,48 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
               </Button>
               <Button type="button" onClick={handleUpdateStatus} disabled={updatingStatus}>
                 {updatingStatus ? 'Updating…' : 'Update'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispatch date modal */}
+      {dispatchDateInvoice && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+          <div className="bg-white w-full max-w-sm rounded-xl border border-gray-200 shadow-2xl p-5">
+            <h3 className="text-base font-semibold text-gray-900">Set Dispatch Date</h3>
+            <p className="text-xs text-gray-500 mt-1">{dispatchDateInvoice.invoiceNumber}</p>
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Dispatch Date</label>
+              <input
+                type="date"
+                value={dispatchDateValue}
+                onChange={e => setDispatchDateValue(e.target.value)}
+                className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+              />
+            </div>
+            {dispatchDateValue && (
+              <p className="text-xs text-gray-400 mt-1">
+                Currently: {dispatchDateInvoice.dispatchDate ? formatDate(dispatchDateInvoice.dispatchDate) : 'not set'}
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDispatchDateInvoice(null)}>
+                Cancel
+              </Button>
+              {dispatchDateInvoice.dispatchDate && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setDispatchDateValue(''); }}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Clear Date
+                </Button>
+              )}
+              <Button type="button" onClick={handleSaveDispatchDate} disabled={savingDispatchDate}>
+                {savingDispatchDate ? 'Saving…' : 'Save'}
               </Button>
             </div>
           </div>

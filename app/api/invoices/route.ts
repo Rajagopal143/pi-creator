@@ -150,6 +150,9 @@ export async function GET(req: NextRequest) {
     // `hasToken=true` restricts the list to invoices ready for dispatch (i.e.
     // ones that have received first payment and been issued a token).
     const hasToken = searchParams.get('hasToken') === 'true';
+    const hasDispatchDate = searchParams.get('hasDispatchDate') === 'true';
+    const dispatchStartDate = searchParams.get('dispatchStartDate') || '';
+    const dispatchEndDate = searchParams.get('dispatchEndDate') || '';
 
     const query: Record<string, unknown> = {};
 
@@ -174,6 +177,13 @@ export async function GET(req: NextRequest) {
       query.status = status;
     }
     if (hasToken) query.tokenNumber = { $exists: true };
+    if (hasDispatchDate) query.dispatchDate = { $exists: true, $nin: [null, ''] };
+    if (dispatchStartDate || dispatchEndDate) {
+      const df: Record<string, string> = {};
+      if (dispatchStartDate) df.$gte = dispatchStartDate;
+      if (dispatchEndDate) df.$lte = dispatchEndDate;
+      query.dispatchDate = df;
+    }
     if (startDate || endDate) {
       const dateFilter: Record<string, string> = {};
       if (startDate) dateFilter.$gte = startDate;

@@ -86,14 +86,22 @@ export async function PATCH(
   try {
     await connectDB();
     const { id } = await params;
-    const body = await req.json() as { status?: string; description?: string };
-    if (!body.status) {
-      return NextResponse.json({ success: false, message: 'Status is required' }, { status: 400 });
+    const body = await req.json() as { status?: string; description?: string; dispatchDate?: string };
+
+    if (!body.status && body.dispatchDate === undefined) {
+      return NextResponse.json({ success: false, message: 'status or dispatchDate is required' }, { status: 400 });
     }
 
     const invoice = await Invoice.findById(id);
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
+    }
+
+    // Dispatch-date-only update — no status change, no stock side-effects.
+    if (!body.status && body.dispatchDate !== undefined) {
+      invoice.dispatchDate = body.dispatchDate || undefined;
+      await invoice.save();
+      return NextResponse.json({ success: true, data: invoice });
     }
 
     const now = new Date().toISOString();

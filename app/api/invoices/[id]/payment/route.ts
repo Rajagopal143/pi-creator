@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import { Invoice } from '@/lib/invoiceModel';
 import { TokenCounter, formatTokenLabel } from '@/lib/tokenCounterModel';
-import { assertSufficientStock, bumpDailyStock } from '@/lib/products/dailyStockModel';
+import { bumpDailyStock } from '@/lib/products/dailyStockModel';
 
 /**
  * Record the first payment on an invoice.
@@ -78,12 +78,9 @@ export async function POST(
     let updated;
     try {
       await session.withTransaction(async () => {
-        // 0) Reservation requires enough committable stock today — otherwise
-        //    we'd reserve more than the MU can fulfil. Throws → rolls back.
         const lineItems = (invoice.lineItems ?? []) as Array<{
           productId?: number; productName?: string; qty?: number;
         }>;
-        await assertSufficientStock(muId, lineItems, 'commit', { session });
 
         // 1) Reserve the next token (atomic $inc, returns the pre-increment value).
         const counter = await TokenCounter.findOneAndUpdate(

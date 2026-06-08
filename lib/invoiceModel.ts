@@ -118,6 +118,8 @@ export interface SavedInvoice {
   tokenLabel?: string;
   /** Promised delivery date (ISO YYYY-MM-DD), set when first payment is recorded. */
   expectedDeliveryDate?: string;
+  /** Scheduled dispatch date (ISO YYYY-MM-DD), set manually from the invoice actions menu. */
+  dispatchDate?: string;
   createdAt?: string;
 }
 
@@ -175,6 +177,7 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     tokenNumber: { type: Number },
     tokenLabel: { type: String },
     expectedDeliveryDate: { type: String },
+    dispatchDate: { type: String },
   },
   { timestamps: true }
 );
