@@ -33,12 +33,33 @@ function csvCell(value: string | number): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** Builds the grouped CSV text for the given invoices. */
-export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
-  const rows: (string | number)[][] = [[...COLUMNS]];
+/** Distinct product models across the export, in first-seen order. */
+function collectModels(invoices: SavedInvoice[]): string[] {
+  const models: string[] = [];
+  const seen = new Set<string>();
+  for (const inv of invoices) {
+    for (const item of inv.lineItems ?? []) {
+      const name = (item.productName ?? '').trim();
+      if (name && !seen.has(name)) { seen.add(name); models.push(name); }
+    }
+  }
+  return models;
+}
 
-  // The export API already returns invoices in oldest-first chronological order.
-  const ordered = invoices;
+/** Sums line-item quantities by product model for a single invoice. */
+function modelQtyMap(inv: SavedInvoice): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const item of inv.lineItems ?? []) {
+    const name = (item.productName ?? '').trim();
+    if (!name) continue;
+    map[name] = (map[name] ?? 0) + (item.qty ?? 0);
+  }
+  return map;
+}
+
+/** Builds the grouped line-item rows (the left-hand table). */
+function buildLineItemRows(ordered: SavedInvoice[]): (string | number)[][] {
+  const rows: (string | number)[][] = [[...COLUMNS]];
 
   ordered.forEach((inv, invIndex) => {
     const items = inv.lineItems ?? [];
@@ -73,7 +94,52 @@ export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
     }
   });
 
-  return rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  return rows;
+}
+
+/**
+ * Builds the standalone per-model quantity matrix (the right-hand block):
+ * a totals row, a model-name header, then one row per invoice. It is its own
+ * grid — rows are NOT aligned to the dated line-item rows on the left.
+ */
+function buildModelMatrixRows(ordered: SavedInvoice[], models: string[]): (string | number)[][] {
+  const maps = ordered.map(modelQtyMap);
+  const totals = models.map(m => maps.reduce((s, map) => s + (map[m] ?? 0), 0));
+
+  const rows: (string | number)[][] = [];
+  rows.push(totals.map(t => t || ''));               // grand totals, on top
+  rows.push([...models]);                             // model-name header
+  for (const map of maps) {
+    rows.push(models.map(m => (map[m] ? map[m] : ''))); // blank for zero
+  }
+  return rows;
+}
+
+/** Builds the grouped CSV text for the given invoices. */
+export function buildInvoiceCsv(invoices: SavedInvoice[]): string {
+  // The export API already returns invoices in oldest-first chronological order.
+  const ordered = invoices;
+
+  const left = buildLineItemRows(ordered);
+  const models = collectModels(ordered);
+
+  // No products → just the line-item table.
+  if (models.length === 0) {
+    return left.map(r => r.map(csvCell).join(',')).join('\r\n');
+  }
+
+  // The matrix is a separate grid placed to the right, with one spacer column.
+  const right = buildModelMatrixRows(ordered, models);
+  const blankLeft = COLUMNS.map(() => '');
+  const blankRight = models.map(() => '');
+  const maxLen = Math.max(left.length, right.length);
+
+  const merged: (string | number)[][] = [];
+  for (let i = 0; i < maxLen; i++) {
+    merged.push([...(left[i] ?? blankLeft), '', ...(right[i] ?? blankRight)]);
+  }
+
+  return merged.map(r => r.map(csvCell).join(',')).join('\r\n');
 }
 
 /** Triggers a browser download of the invoices as a CSV (Excel-compatible) file. */

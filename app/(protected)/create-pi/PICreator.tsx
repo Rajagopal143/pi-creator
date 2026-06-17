@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import InvoicePreview from './InvoicePreview';
 import { usePICreator, type PICreatorInput } from './usePICreator';
 import { InvoiceDetailsCard } from './components/InvoiceDetailsCard';
@@ -15,6 +16,7 @@ import { PreviewModal } from './components/PreviewModal';
  */
 export default function PICreator(props: PICreatorInput) {
   const pi = usePICreator(props);
+  const router = useRouter();
 
   return (
     <div className="min-h-screen bg-zinc-100 print:bg-white">
@@ -27,6 +29,20 @@ export default function PICreator(props: PICreatorInput) {
       {/* ── Form ── */}
       <div className=" mx-auto px-3 py-6 space-y-5 print:hidden">
 
+        {/* Back — only while editing an existing invoice. */}
+        {pi.editInvoiceId && (
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+        )}
+
         <InvoiceDetailsCard
           invoiceNumber={pi.invoiceNumber}
           assignedNumber={pi.assignedNumber}
@@ -35,6 +51,7 @@ export default function PICreator(props: PICreatorInput) {
           onInvoiceDateChange={pi.setInvoiceDate}
           dueDate={pi.dueDate}
           onDueDateChange={pi.setDueDate}
+          onApplyAutofill={pi.applyAutofill}
         />
 
         <ManufacturingTaxCard

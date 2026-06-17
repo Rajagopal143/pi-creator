@@ -3,12 +3,15 @@
 import type { ManufacturingUnit } from '@/lib/csvData';
 import { DUE_DATE_OFFSET_DAYS } from '../constants';
 import { addDaysISO } from '../utils';
+import { AIAutofillCard } from './AIAutofillCard';
+import type { POAutofillResult } from '@/lib/ai/poTypes';
 
 /** "Invoice Details" card — number preview plus invoice/due dates. */
 export function InvoiceDetailsCard({
   invoiceNumber, assignedNumber, selectedMU,
   invoiceDate, onInvoiceDateChange,
   dueDate, onDueDateChange,
+  onApplyAutofill,
 }: {
   invoiceNumber: string;
   assignedNumber: string | null;
@@ -17,12 +20,16 @@ export function InvoiceDetailsCard({
   onInvoiceDateChange: (v: string) => void;
   dueDate: string;
   onDueDateChange: (v: string) => void;
+  onApplyAutofill: (res: POAutofillResult) => void;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">
-        Invoice Details
-      </h2>
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-700">
+          Invoice Details
+        </h2>
+        <AIAutofillCard onApply={onApplyAutofill} />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Number</label>

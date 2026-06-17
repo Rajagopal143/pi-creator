@@ -1,0 +1,802 @@
+[
+  {
+    "id": 1,
+    "name": "RUBIE",
+    "variants": [
+      {
+        "id": 1000,
+        "name": "48V",
+        "price": 31150
+      },
+      {
+        "id": 1001,
+        "name": "60V",
+        "price": 33650
+      },
+      {
+        "id": 1002,
+        "name": "72V",
+        "price": 36150
+      },
+      {
+        "id": 1003,
+        "name": "60V 43Ah",
+        "price": 39350
+      },
+      {
+        "id": 1004,
+        "name": "Without Battery/Charger",
+        "price": 23650
+      },
+      {
+        "id": 1005,
+        "name": "48V 43AH",
+        "price": 37150
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "RAMIE",
+    "variants": [
+      {
+        "id": 2000,
+        "name": "48V",
+        "price": 32150
+      },
+      {
+        "id": 2001,
+        "name": "60V",
+        "price": 34650
+      },
+      {
+        "id": 2002,
+        "name": "72V",
+        "price": 37150
+      },
+      {
+        "id": 2003,
+        "name": "60V 43Ah",
+        "price": 40350
+      },
+      {
+        "id": 2004,
+        "name": "Without Battery/Charger",
+        "price": 24650
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "NEU",
+    "variants": [
+      {
+        "id": 3000,
+        "name": "48V",
+        "price": 32650
+      },
+      {
+        "id": 3001,
+        "name": "60V",
+        "price": 35150
+      },
+      {
+        "id": 3002,
+        "name": "72V",
+        "price": 37650
+      },
+      {
+        "id": 3003,
+        "name": "60V 43Ah",
+        "price": 40850
+      },
+      {
+        "id": 3004,
+        "name": "Without Battery/Charger",
+        "price": 25150
+      },
+      {
+        "id": 3005,
+        "name": "48V 43AH",
+        "price": 38650
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "VIRAJ",
+    "variants": [
+      {
+        "id": 4000,
+        "name": "48V",
+        "price": 33650
+      },
+      {
+        "id": 4001,
+        "name": "60V",
+        "price": 36150
+      },
+      {
+        "id": 4002,
+        "name": "72V",
+        "price": 38650
+      },
+      {
+        "id": 4003,
+        "name": "Without Battery/Charger",
+        "price": 26150
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "CHERRY",
+    "variants": [
+      {
+        "id": 5000,
+        "name": "48V",
+        "price": 35500
+      },
+      {
+        "id": 5001,
+        "name": "60V",
+        "price": 38000
+      },
+      {
+        "id": 5002,
+        "name": "72V",
+        "price": 40500
+      },
+      {
+        "id": 5003,
+        "name": "60V 43Ah",
+        "price": 43850
+      },
+      {
+        "id": 5004,
+        "name": "Without Battery/Charger",
+        "price": 28000
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "UTILITY",
+    "variants": [
+      {
+        "id": 6000,
+        "name": "60V",
+        "price": 35500
+      },
+      {
+        "id": 6001,
+        "name": "72V",
+        "price": 38000
+      },
+      {
+        "id": 6002,
+        "name": "Without Battery/Charger",
+        "price": 25500
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "LOTUS",
+    "variants": [
+      {
+        "id": 7000,
+        "name": "48V",
+        "price": 36500
+      },
+      {
+        "id": 7001,
+        "name": "60V",
+        "price": 39000
+      },
+      {
+        "id": 7002,
+        "name": "72V",
+        "price": 41500
+      },
+      {
+        "id": 7003,
+        "name": "60V 43Ah",
+        "price": 44850
+      },
+      {
+        "id": 7004,
+        "name": "Without Battery/Charger",
+        "price": 29000
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "RAAVTA",
+    "variants": [
+      {
+        "id": 8000,
+        "name": "48V",
+        "price": 40000
+      },
+      {
+        "id": 8001,
+        "name": "60V",
+        "price": 42500
+      },
+      {
+        "id": 8002,
+        "name": "72V",
+        "price": 45000
+      },
+      {
+        "id": 8003,
+        "name": "60V 43Ah",
+        "price": 48350
+      },
+      {
+        "id": 8004,
+        "name": "Without Battery/Charger",
+        "price": 32500
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "DELTA",
+    "variants": [
+      {
+        "id": 9000,
+        "name": "60V",
+        "price": 40500
+      },
+      {
+        "id": 9001,
+        "name": "72V",
+        "price": 43000
+      },
+      {
+        "id": 9002,
+        "name": "60V 43Ah",
+        "price": 46350
+      },
+      {
+        "id": 9003,
+        "name": "Without Battery/Charger",
+        "price": 30500
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "UTILITY PRO",
+    "variants": [
+      {
+        "id": 10000,
+        "name": "60V",
+        "price": 35500
+      },
+      {
+        "id": 10001,
+        "name": "72V",
+        "price": 38000
+      },
+      {
+        "id": 10002,
+        "name": "Without Battery/Charger",
+        "price": 25500
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "SPARROW",
+    "variants": [
+      {
+        "id": 11000,
+        "name": "60V",
+        "price": 42850
+      },
+      {
+        "id": 11001,
+        "name": "72V",
+        "price": 45350
+      },
+      {
+        "id": 11002,
+        "name": "60V 43Ah",
+        "price": 48850
+      },
+      {
+        "id": 11003,
+        "name": "Without Battery/Charger",
+        "price": 32850
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "SPARROW PRO",
+    "variants": [
+      {
+        "id": 12000,
+        "name": "60V",
+        "price": 43850
+      },
+      {
+        "id": 12001,
+        "name": "72V",
+        "price": 46350
+      },
+      {
+        "id": 12002,
+        "name": "60V 43Ah",
+        "price": 49850
+      },
+      {
+        "id": 12003,
+        "name": "Without Battery/Charger",
+        "price": 33850
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "name": "SPARROW PLUS",
+    "variants": [
+      {
+        "id": 13000,
+        "name": "60V",
+        "price": 44850
+      },
+      {
+        "id": 13001,
+        "name": "72V",
+        "price": 47350
+      },
+      {
+        "id": 13002,
+        "name": "60V 43Ah",
+        "price": 50850
+      },
+      {
+        "id": 13003,
+        "name": "Without Battery/Charger",
+        "price": 34850
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "name": "SPARROW X",
+    "variants": [
+      {
+        "id": 14000,
+        "name": "60V",
+        "price": 45850
+      },
+      {
+        "id": 14001,
+        "name": "72V",
+        "price": 48350
+      },
+      {
+        "id": 14002,
+        "name": "60V 43Ah",
+        "price": 51850
+      },
+      {
+        "id": 14003,
+        "name": "Without Battery/Charger",
+        "price": 35850
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "name": "SOPHIE",
+    "variants": [
+      {
+        "id": 15000,
+        "name": "60V",
+        "price": 46850
+      },
+      {
+        "id": 15001,
+        "name": "72V",
+        "price": 49350
+      },
+      {
+        "id": 15002,
+        "name": "Without Battery/Charger",
+        "price": 36850
+      },
+      {
+        "id": 15003,
+        "name": "60V 43AH",
+        "price": 52850
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "name": "UNIQUE MANO",
+    "variants": [
+      {
+        "id": 16000,
+        "name": "60V",
+        "price": 45850
+      },
+      {
+        "id": 16001,
+        "name": "72V",
+        "price": 48350
+      },
+      {
+        "id": 16002,
+        "name": "60V 43Ah",
+        "price": 51850
+      },
+      {
+        "id": 16003,
+        "name": "Without Battery/Charger",
+        "price": 35850
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "name": "AQABA",
+    "variants": [
+      {
+        "id": 17000,
+        "name": "60V",
+        "price": 44850
+      },
+      {
+        "id": 17001,
+        "name": "72V",
+        "price": 47350
+      },
+      {
+        "id": 17002,
+        "name": "60V 43Ah",
+        "price": 50850
+      },
+      {
+        "id": 17003,
+        "name": "Without Battery/Charger",
+        "price": 34850
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "name": "ASVA",
+    "variants": [
+      {
+        "id": 18000,
+        "name": "60V",
+        "price": 44850
+      },
+      {
+        "id": 18001,
+        "name": "72V",
+        "price": 47350
+      },
+      {
+        "id": 18002,
+        "name": "60V 43Ah",
+        "price": 50850
+      },
+      {
+        "id": 18003,
+        "name": "Without Battery/Charger",
+        "price": 34850
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "name": "SHAMA",
+    "variants": [
+      {
+        "id": 19000,
+        "name": "60V",
+        "price": 41350
+      },
+      {
+        "id": 19001,
+        "name": "72V",
+        "price": 43850
+      },
+      {
+        "id": 19002,
+        "name": "Without Battery/Charger",
+        "price": 31350
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "name": "DUSTER",
+    "variants": [
+      {
+        "id": 20000,
+        "name": "60V",
+        "price": 29250
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "name": "ZUNAID",
+    "variants": [
+      {
+        "id": 21000,
+        "name": "48V",
+        "price": 34000
+      },
+      {
+        "id": 21001,
+        "name": "60V",
+        "price": 36500
+      },
+      {
+        "id": 21002,
+        "name": "72V",
+        "price": 39000
+      },
+      {
+        "id": 21003,
+        "name": "60V 43Ah",
+        "price": 42350
+      },
+      {
+        "id": 21004,
+        "name": "Without Battery/Charger",
+        "price": 26500
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "name": "RUSH",
+    "variants": [
+      {
+        "id": 22000,
+        "name": "60V",
+        "price": 45350
+      },
+      {
+        "id": 22001,
+        "name": "72V",
+        "price": 47850
+      },
+      {
+        "id": 22002,
+        "name": "Without Battery/Charger",
+        "price": 35350
+      },
+      {
+        "id": 22003,
+        "name": "60V 43AH",
+        "price": 51350
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "name": "LUCKA",
+    "variants": [
+      {
+        "id": 23000,
+        "name": "60V",
+        "price": 48850
+      },
+      {
+        "id": 23001,
+        "name": "72V",
+        "price": 51350
+      },
+      {
+        "id": 23002,
+        "name": "60V 43Ah",
+        "price": 54850
+      },
+      {
+        "id": 23003,
+        "name": "Without Battery/Charger",
+        "price": 38850
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "name": "RUSTER",
+    "variants": [
+      {
+        "id": 24000,
+        "name": "60V",
+        "price": 30750
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "name": "ASHER",
+    "variants": [
+      {
+        "id": 25000,
+        "name": "60V",
+        "price": 33650
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "name": "DRAGGER",
+    "variants": [
+      {
+        "id": 26000,
+        "name": "60V",
+        "price": 32150
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "name": "ARSHANA",
+    "variants": [
+      {
+        "id": 27000,
+        "name": "72V",
+        "price": 53850
+      },
+      {
+        "id": 27001,
+        "name": "Without Battery/Charger",
+        "price": 41350
+      },
+      {
+        "id": 27002,
+        "name": "60V",
+        "price": 0
+      },
+      {
+        "id": 27003,
+        "name": "60V 43AH",
+        "price": 57350
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "name": "CHARGER",
+    "variants": [
+      {
+        "id": 28000,
+        "name": "48V 3AH",
+        "price": 682.5
+      },
+      {
+        "id": 28001,
+        "name": "60V 3AH",
+        "price": 714
+      },
+      {
+        "id": 28002,
+        "name": "72V 3AH",
+        "price": 924
+      },
+      {
+        "id": 28003,
+        "name": "67V 6A",
+        "price": 1350
+      },
+      {
+        "id": 28004,
+        "name": "60V 4A",
+        "price": 1260
+      },
+      {
+        "id": 28005,
+        "name": "72V 4A",
+        "price": 2100
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "name": "BATTERY",
+    "variants": [
+      {
+        "id": 29000,
+        "name": "12V 33AH",
+        "price": 2360
+      },
+      {
+        "id": 29001,
+        "name": "12V 43AH",
+        "price": 3894
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "name": "BEATS",
+    "variants": [
+      {
+        "id": 30000,
+        "name": "60V",
+        "price": 44000
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "name": "ADDA",
+    "variants": [
+      {
+        "id": 31000,
+        "name": "60V",
+        "price": 39750
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "name": "Y1",
+    "variants": [
+      {
+        "id": 32000,
+        "name": "60V",
+        "price": 0
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "name": "Y2",
+    "variants": [
+      {
+        "id": 33000,
+        "name": "60V",
+        "price": 0
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "name": "ELECTRIC SCOOTER ACCESSORIES",
+    "variants": [
+      {
+        "id": 35000,
+        "name": "STEEL  ACCESSORIES",
+        "price": 2301
+      },
+      {
+        "id": 35001,
+        "name": "BLACK  ACCESSORIES",
+        "price": 1711
+      },
+      {
+        "id": 35002,
+        "name": "STEEL",
+        "price": 1711
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "name": "WE 4",
+    "variants": [
+      {
+        "id": 36000,
+        "name": "60V",
+        "price": 35500
+      }
+    ]
+  }
+]

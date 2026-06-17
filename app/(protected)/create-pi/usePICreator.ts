@@ -13,6 +13,7 @@ import {
   DUE_DATE_OFFSET_DAYS, EMPTY_ADDRESS, INSURANCE_GST_RATE, INSURANCE_RATE, TRANSPORT_GST_RATE,
 } from './constants';
 import { addDaysISO, getVariantPrice, normalizeAddress, todayISO } from './utils';
+import type { POAutofillResult } from '@/lib/ai/poTypes';
 
 export interface PICreatorInput {
   dealers: Dealer[];
@@ -535,6 +536,51 @@ export function usePICreator({
     setShipToAddr(normalizeAddress(d.billingAddress));
   }, []);
 
+  // ── AI autofill ─────────────────────────────────────────────────────────────
+  // Applies a Gemini-parsed PO result onto the form. Every id is re-validated
+  // against the loaded catalog before use, so a hallucinated id is dropped
+  // rather than silently breaking pricing. The user then reviews and saves.
+  const applyAutofill = useCallback((res: POAutofillResult) => {
+    const nextPiType: PIType = res.piType ?? 'vehicle';
+    if (res.priceTier) setPriceTier(res.priceTier);
+    setPiType(nextPiType);
+
+    // Dealers — resolve by id against the loaded catalog.
+    const bill = res.billTo.dealerId != null
+      ? dealers.find(d => d.id === res.billTo.dealerId) ?? null
+      : null;
+    if (bill) handleBillToSelect(bill); // also mirrors to Ship To
+    const ship = res.shipTo.dealerId != null
+      ? dealers.find(d => d.id === res.shipTo.dealerId) ?? null
+      : null;
+    if (ship) handleShipToSelect(ship);
+
+    // Line items — keep only rows whose product resolved against the catalog.
+    const rows: LineItemState[] = res.lineItems
+      .filter(li => li.productId != null && products.some(p => p.id === li.productId))
+      .map((li, i) => {
+        const kind: LineItemKind = nextPiType === 'accessory' ? 'accessory' : 'vehicle';
+        // Keep the variant only if it actually belongs to the resolved product.
+        const variantId =
+          li.variantId != null &&
+          variants.some(v => v.id === li.variantId && v.productId === li.productId)
+            ? li.variantId
+            : null;
+        return {
+          id: `ai-${Date.now()}-${i}`,
+          productId: li.productId!,
+          variantId: kind === 'accessory' ? null : variantId,
+          qty: li.qty > 0 ? Math.floor(li.qty) : 1,
+          accessory: kind === 'accessory'
+            ? (li.accessory === 'black' ? 'black' : 'steel')
+            : 'none',
+          priceList,
+          kind,
+        };
+      });
+    if (rows.length > 0) setLineItems(rows);
+  }, [dealers, products, variants, priceList, setPriceTier, setPiType, handleBillToSelect, handleShipToSelect]);
+
   // ── Preview modal ──────────────────────────────────────────────────────────
   // `saved` is intentionally NOT reset here — once an invoice is saved it stays
   // saved, so the Save action can only run once (no duplicate invoices).
@@ -678,6 +724,8 @@ export function usePICreator({
     // line items
     piType, setPiType,
     computedItems, updateLineItem, addLineItem, removeLineItem,
+    // AI autofill
+    applyAutofill,
     // stock availability (for the line-item dropdown + qty caps)
     stockAvailability: effectiveAvailability, stockEnforced: enforceStock, stockLoading: availabilityLoading,
     // summary figures

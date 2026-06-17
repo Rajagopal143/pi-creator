@@ -184,6 +184,10 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [limit, setLimit]             = useState<number>(DEFAULT_LIMIT);
   const [exporting, setExporting]     = useState(false);
 
+  // Whether the URL → state hydration on mount has run; gates fetching and the
+  // state → URL mirror so we don't overwrite the incoming query string.
+  const [initialized, setInitialized] = useState(false);
+
   const [viewInvoice, setViewInvoice] = useState<SavedInvoice | null>(null);
   const [statusInvoice, setStatusInvoice] = useState<SavedInvoice | null>(null);
   const [statusValue, setStatusValue] = useState<string>(PI_STATUSES[0]);
@@ -232,7 +236,33 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
     }
   }, [buildParams, page, limit]);
 
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+  // ── URL ⇄ state sync ──────────────────────────────────────────────────────
+  // Hydrate filter/search/page state from the URL once on mount.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setSearch(sp.get('search') ?? '');
+    setFilters({
+      taxType:             sp.get('taxType') ?? '',
+      status:              sp.get('status') ?? '',
+      manufacturingUnitId: sp.get('manufacturingUnitId') ?? '',
+      startDate:           sp.get('startDate') ?? '',
+      endDate:             sp.get('endDate') ?? '',
+    });
+    const p = Number(sp.get('page'));
+    if (p >= 1) setPage(p);
+    const l = Number(sp.get('limit'));
+    if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(l)) setLimit(l);
+    setInitialized(true);
+  }, []);
+
+  // Mirror the current filter/search/page state back into the URL.
+  useEffect(() => {
+    if (!initialized) return;
+    const qs = buildParams({ page: String(page), limit: String(limit) }).toString();
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+  }, [initialized, buildParams, page, limit]);
+
+  useEffect(() => { if (initialized) fetchInvoices(); }, [fetchInvoices, initialized]);
 
   // Exports every invoice matching the current filters (not just this page).
   const handleExport = useCallback(async () => {
@@ -432,7 +462,7 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50">
-                  {['Invoice #', 'Date', 'Bill To', 'Ship To', 'MFG Unit', 'Status', 'Items', 'Qty', 'Total', 'Saved On', 'Actions'].map(h => (
+                  {['Invoice #', 'Date', 'Bill To', 'Ship To', 'MFG Unit', 'Status', 'Items', 'Qty', 'Total',  'Actions'].map(h => (
                     <th
                       key={h}
                       className="text-[10px] uppercase text-gray-500 font-semibold text-left px-4 py-3 tracking-wide"
@@ -487,22 +517,13 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-900">
                         <div className="font-medium">{inv.dealer?.orgName || '—'}</div>
-                        {inv.dealer?.dealerId && (
-                          <div className="text-gray-400 text-[10px]">{inv.dealer.dealerId}</div>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-900">
                         <div className="font-medium">
                           {inv.shipToDealer?.orgName || inv.dealer?.orgName || '—'}
                         </div>
-                        {(inv.shipToDealer?.dealerId || inv.dealer?.dealerId) && (
-                          <div className="text-gray-400 text-[10px]">
-                            {inv.shipToDealer?.dealerId || inv.dealer?.dealerId}
-                          </div>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-700">
-                        <div>{inv.manufacturingUnit?.unitName || '—'}</div>
                         <div className="text-gray-400 text-[10px]">{inv.manufacturingUnit?.state}</div>
                       </td>
                      
@@ -510,9 +531,6 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusBadgeClass(inv.status)}`}>
                           {inv.status || PI_STATUSES[0]}
                         </span>
-                        <div className="text-[10px] text-gray-400 mt-1 truncate max-w-[200px]">
-                          {inv.statusDescription}
-                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-700 text-center">
                         {inv.lineItems?.length ?? 0}
@@ -522,9 +540,6 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                       </td>
                       <td className="px-4 py-3 text-xs font-semibold text-gray-900 whitespace-nowrap">
                         {formatINR(inv.total)}
-                      </td>
-                      <td className="px-4 py-3 text-[10px] text-gray-400 whitespace-nowrap">
-                        {formatDateTime(inv.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <DropdownMenu>

@@ -51,6 +51,9 @@ export default function DispatchList({ manufacturingUnits }: { manufacturingUnit
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
+  // Gates fetching + the state → URL mirror until the URL → state hydration runs.
+  const [initialized, setInitialized] = useState(false);
+
   const buildParams = useCallback(() => {
     const p = new URLSearchParams();
     p.set('limit', String(DEFAULT_LIMIT));
@@ -87,7 +90,35 @@ export default function DispatchList({ manufacturingUnits }: { manufacturingUnit
     }
   }, [buildParams]);
 
-  useEffect(() => { fetchList(); }, [fetchList]);
+  // ── URL ⇄ state sync ──────────────────────────────────────────────────────
+  // Hydrate filter state from the URL once on mount.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setSearch(sp.get('search') ?? '');
+    setMuId(sp.get('manufacturingUnitId') ?? '');
+    const mode = sp.get('dateMode');
+    if (mode === 'all' || mode === 'today' || mode === 'custom') setDateMode(mode);
+    setCustomFrom(sp.get('from') ?? '');
+    setCustomTo(sp.get('to') ?? '');
+    setInitialized(true);
+  }, []);
+
+  // Mirror the current filter state back into the URL.
+  useEffect(() => {
+    if (!initialized) return;
+    const p = new URLSearchParams();
+    if (search.trim()) p.set('search', search.trim());
+    if (muId) p.set('manufacturingUnitId', muId);
+    if (dateMode !== 'all') p.set('dateMode', dateMode);
+    if (dateMode === 'custom') {
+      if (customFrom) p.set('from', customFrom);
+      if (customTo) p.set('to', customTo);
+    }
+    const qs = p.toString();
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+  }, [initialized, search, muId, dateMode, customFrom, customTo]);
+
+  useEffect(() => { if (initialized) fetchList(); }, [fetchList, initialized]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -213,7 +244,7 @@ export default function DispatchList({ manufacturingUnits }: { manufacturingUnit
             <table className="w-full min-w-[1000px]">
               <thead>
                 <tr className="border-b-2 border-gray-200 bg-gray-50">
-                  {['Token', 'Invoice #', 'Bill To', 'MFG Unit', 'Items', 'Qty', 'Dispatch Date', 'Exp. Delivery', 'Status', 'Actions'].map(h => (
+                  {[ 'Invoice #', 'Bill To', 'MFG Unit', 'Items', 'Qty', 'Dispatch Date', 'Exp. Delivery', 'Status', 'Actions'].map(h => (
                     <th key={h} className="text-[10px] uppercase text-gray-500 font-semibold text-left px-4 py-3 tracking-wide">
                       {h}
                     </th>
@@ -245,15 +276,6 @@ export default function DispatchList({ manufacturingUnits }: { manufacturingUnit
                     const isDispatched = inv.status === 'Dispatched';
                     return (
                       <tr key={String(inv._id)} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          {inv.tokenLabel ? (
-                            <span className="inline-block rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800 font-mono">
-                              {inv.tokenLabel}
-                            </span>
-                          ) : (
-                            <span className="text-gray-300 text-xs">—</span>
-                          )}
-                        </td>
                         <td className="px-4 py-3 text-xs font-mono font-medium text-gray-900 whitespace-nowrap">
                           {inv.invoiceNumber}
                         </td>
