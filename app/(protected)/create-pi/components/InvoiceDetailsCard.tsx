@@ -11,6 +11,7 @@ export function InvoiceDetailsCard({
   invoiceNumber, assignedNumber, selectedMU,
   invoiceDate, onInvoiceDateChange,
   dueDate, onDueDateChange,
+  otherReferenceNumber, onOtherReferenceNumberChange,
   onApplyAutofill,
 }: {
   invoiceNumber: string;
@@ -20,6 +21,8 @@ export function InvoiceDetailsCard({
   onInvoiceDateChange: (v: string) => void;
   dueDate: string;
   onDueDateChange: (v: string) => void;
+  otherReferenceNumber: string;
+  onOtherReferenceNumberChange: (v: string) => void;
   onApplyAutofill: (res: POAutofillResult) => void;
 }) {
   return (
@@ -73,6 +76,16 @@ export function InvoiceDetailsCard({
           <div className="mt-1 text-[10px] text-gray-400">
             Auto-set {DUE_DATE_OFFSET_DAYS} days after the invoice date
           </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Other Reference Number</label>
+          <input
+            type="text"
+            value={otherReferenceNumber}
+            onChange={e => onOtherReferenceNumberChange(e.target.value)}
+            placeholder="e.g. customer PO / external ref"
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+          />
         </div>
       </div>
     </div>

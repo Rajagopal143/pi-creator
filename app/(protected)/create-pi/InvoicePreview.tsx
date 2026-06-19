@@ -78,6 +78,8 @@ export interface InvoicePreviewProps {
   hideInvoiceNumber?: boolean;
   invoiceDate: string;
   dueDate: string;
+  /** Free-text other reference number (customer PO / external ref). */
+  otherReferenceNumber?: string;
   manufacturingUnit: PreviewManufacturingUnit | null;
   /** Bill To dealer */
   dealer: PreviewDealer | null;
@@ -135,6 +137,7 @@ export default function InvoicePreview({
   hideInvoiceNumber = false,
   invoiceDate,
   dueDate,
+  otherReferenceNumber,
   manufacturingUnit,
   dealer,
   shipToDealer,
@@ -236,6 +239,12 @@ export default function InvoicePreview({
           <div className="text-gray-400 uppercase font-semibold tracking-wide text-[9px]">Due Date</div>
           <div className="font-semibold text-gray-900 mt-0.5">{formatDate(dueDate)}</div>
         </div>
+        {otherReferenceNumber && (
+          <div>
+            <div className="text-gray-400 uppercase font-semibold tracking-wide text-[9px]">Other Ref #</div>
+            <div className="font-semibold text-gray-900 mt-0.5">{otherReferenceNumber}</div>
+          </div>
+        )}
         {manufacturingUnit && (
           <div>
             <div className="text-gray-400 uppercase font-semibold tracking-wide text-[9px]">MFG Unit GSTIN</div>

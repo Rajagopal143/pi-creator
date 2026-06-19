@@ -51,6 +51,8 @@ export default function PICreator(props: PICreatorInput) {
           onInvoiceDateChange={pi.setInvoiceDate}
           dueDate={pi.dueDate}
           onDueDateChange={pi.setDueDate}
+          otherReferenceNumber={pi.otherReferenceNumber}
+          onOtherReferenceNumberChange={pi.setOtherReferenceNumber}
           onApplyAutofill={pi.applyAutofill}
         />
 

@@ -120,6 +120,8 @@ export interface SavedInvoice {
   expectedDeliveryDate?: string;
   /** Scheduled dispatch date (ISO YYYY-MM-DD), set manually from the invoice actions menu. */
   dispatchDate?: string;
+  /** Free-text other reference number (e.g. customer PO / external ref) shown on the print. */
+  otherReferenceNumber?: string;
   createdAt?: string;
 }
 
@@ -178,6 +180,7 @@ const InvoiceSchema = new Schema<SavedInvoice>(
     tokenLabel: { type: String },
     expectedDeliveryDate: { type: String },
     dispatchDate: { type: String },
+    otherReferenceNumber: { type: String, default: '' },
   },
   { timestamps: true }
 );

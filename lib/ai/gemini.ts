@@ -8,15 +8,15 @@ import {
   createUserContent,
   type Schema,
 } from '@google/genai';
-import { buildPOCatalog } from './poCatalog';
 import type { POAutofillResult } from './poTypes';
 
 const MODEL = 'gemini-2.5-flash';
 /**
- * Gemini-uploaded files expire after 48h. Re-upload comfortably before that so
- * an in-flight request never references an expired file.
+ * Re-upload the catalog files to the Gemini Files API once per 24h. Uploaded
+ * files expire after 48h, so a 24h refresh keeps a comfortable margin and means
+ * any single request always references a live file id.
  */
-const FILE_TTL_MS = 40 * 60 * 60 * 1000;
+const FILE_TTL_MS = 24 * 60 * 60 * 1000;
 
 let client: GoogleGenAI | null = null;
 
@@ -32,53 +32,85 @@ function getClient(): GoogleGenAI {
 }
 
 // ── Catalog file cache ────────────────────────────────────────────────────────
-// The dealer/product catalogs are uploaded to the Files API once and reused by
-// URI across requests. Invalidated when the catalog content changes (hash) or
-// the upload nears expiry (TTL).
+// The dealer/product JSON files in /data are uploaded to the Files API and
+// reused by their file id (URI) across requests. They are re-uploaded once the
+// upload passes the 24h TTL, or when a file on disk changes (fingerprint). The
+// uploaded ids are also persisted to a small disk cache so they survive process
+// restarts within the 24h window instead of re-uploading on every cold start.
 
-interface UploadedFile { uri: string; mimeType: string }
+const DEALER_FILE  = path.join(process.cwd(), 'data', 'dealer.json');
+const PRODUCT_FILE = path.join(process.cwd(), 'data', 'product.json');
+const CACHE_FILE   = path.join(os.tmpdir(), 'pi-gemini-catalog-files.json');
+
+interface UploadedFile { name: string; uri: string; mimeType: string }
 interface CatalogFiles {
   dealers: UploadedFile;
   products: UploadedFile;
-  hash: string;
+  /** Fingerprint of the source files — re-uploads when /data changes. */
+  fingerprint: string;
   uploadedAt: number;
 }
 
 let cachedFiles: CatalogFiles | null = null;
 
-async function uploadText(content: string, displayName: string): Promise<UploadedFile> {
-  const ai = getClient();
-  // Persist as a real file on disk before uploading — the Files API reads a path.
-  const filePath = path.join(os.tmpdir(), `${displayName}-${Date.now()}.txt`);
-  await fs.writeFile(filePath, content, 'utf8');
+/** Cheap change-detector for the source files (size + mtime, no full read). */
+async function sourceFingerprint(): Promise<string> {
+  const [d, p] = await Promise.all([fs.stat(DEALER_FILE), fs.stat(PRODUCT_FILE)]);
+  return `${d.size}:${Math.round(d.mtimeMs)}|${p.size}:${Math.round(p.mtimeMs)}`;
+}
+
+async function readDiskCache(): Promise<CatalogFiles | null> {
   try {
-    const uploaded = await ai.files.upload({
-      file: filePath,
-      config: { mimeType: 'text/plain', displayName },
-    });
-    if (!uploaded.uri || !uploaded.mimeType) {
-      throw new Error(`Upload for ${displayName} returned no usable file reference.`);
-    }
-    return { uri: uploaded.uri, mimeType: uploaded.mimeType };
-  } finally {
-    await fs.rm(filePath, { force: true });
+    return JSON.parse(await fs.readFile(CACHE_FILE, 'utf8')) as CatalogFiles;
+  } catch {
+    return null;
   }
 }
 
-async function getCatalogFiles(now: number): Promise<CatalogFiles> {
-  const { dealersJson, productsJson, hash } = await buildPOCatalog();
+async function writeDiskCache(c: CatalogFiles): Promise<void> {
+  try {
+    await fs.writeFile(CACHE_FILE, JSON.stringify(c), 'utf8');
+  } catch {
+    // A non-writable tmp dir just means we re-upload more often — not fatal.
+  }
+}
 
-  const fresh =
-    cachedFiles &&
-    cachedFiles.hash === hash &&
-    now - cachedFiles.uploadedAt < FILE_TTL_MS;
-  if (fresh) return cachedFiles!;
+/** Uploads one /data file to the Files API and returns its file id (uri). */
+async function uploadCatalogFile(filePath: string, displayName: string): Promise<UploadedFile> {
+  const ai = getClient();
+  const uploaded = await ai.files.upload({
+    file: filePath,
+    config: { mimeType: 'text/plain', displayName },
+  });
+  if (!uploaded.uri || !uploaded.mimeType) {
+    throw new Error(`Upload for ${displayName} returned no usable file reference.`);
+  }
+  return { name: uploaded.name ?? '', uri: uploaded.uri, mimeType: uploaded.mimeType };
+}
+
+async function getCatalogFiles(now: number, forceFresh = false): Promise<CatalogFiles> {
+  const fingerprint = await sourceFingerprint();
+  const isFresh = (c: CatalogFiles | null): c is CatalogFiles =>
+    !!c && c.fingerprint === fingerprint && now - c.uploadedAt < FILE_TTL_MS;
+
+  if (!forceFresh) {
+    if (isFresh(cachedFiles)) return cachedFiles;
+    // Cold start: fall back to the persisted ids before paying for a re-upload.
+    if (!cachedFiles) {
+      const disk = await readDiskCache();
+      if (isFresh(disk)) {
+        cachedFiles = disk;
+        return disk;
+      }
+    }
+  }
 
   const [dealers, products] = await Promise.all([
-    uploadText(dealersJson, 'pi-dealers-catalog'),
-    uploadText(productsJson, 'pi-products-catalog'),
+    uploadCatalogFile(DEALER_FILE, 'pi-dealers-catalog'),
+    uploadCatalogFile(PRODUCT_FILE, 'pi-products-catalog'),
   ]);
-  cachedFiles = { dealers, products, hash, uploadedAt: now };
+  cachedFiles = { dealers, products, fingerprint, uploadedAt: now };
+  await writeDiskCache(cachedFiles);
   return cachedFiles;
 }
 
@@ -134,8 +166,8 @@ const RESULT_SCHEMA: Schema = {
 const SYSTEM_INSTRUCTION = `You extract structured purchase-order data from free-text pasted by a sales user, mapping it onto a fixed catalog of dealers and products.
 
 You are given two attached files:
- • the dealers catalog: a JSON array of { id, name, location, type }
- • the products catalog: a JSON array of { id, name, variants:[{ id, name }] }
+ • the dealers catalog: a JSON array of { id, name }
+ • the products catalog: a JSON array of { id, name, variants:[{ id, name, price }] }
 
 Rules:
  • ALWAYS return ids that exist in the attached catalogs. Never invent an id.
@@ -143,7 +175,7 @@ Rules:
  • "To" / "bill to" / the buying party → billTo. Only set shipTo when the text clearly names a DIFFERENT ship destination; otherwise leave shipTo ids null (the form mirrors billTo automatically).
  • Each ordered product line → one lineItems entry. Resolve productId, then the variantId from THAT product's variants. qty must be a positive integer (default 1 if a line clearly orders a product but states no quantity).
  • piType: "accessory" only if the order is clearly accessories-only; otherwise "vehicle". accessory field is "steel" or "black" only for accessory orders, else "none".
- • priceTier: infer from the dealer's "type" when it maps cleanly, else null.
+ • priceTier: infer only from explicit wording in the PO text (e.g. "distributor price"); otherwise null.
  • Put any text you could not confidently map (unknown dealer, unknown product/variant, ambiguous lines) into "unmatched".
  • Always include matchedName as the catalog name you matched (null if unmatched).`;
 
@@ -157,8 +189,8 @@ export async function parsePOText(text: string): Promise<POAutofillResult> {
   const trimmed = text.trim();
   if (!trimmed) throw new Error('No PO text provided.');
 
-  const run = async (now: number): Promise<POAutofillResult> => {
-    const files = await getCatalogFiles(now);
+  const run = async (now: number, forceFresh: boolean): Promise<POAutofillResult> => {
+    const files = await getCatalogFiles(now, forceFresh);
     const response = await ai.models.generateContent({
       model: MODEL,
       contents: createUserContent([
@@ -178,14 +210,13 @@ export async function parsePOText(text: string): Promise<POAutofillResult> {
     return JSON.parse(raw) as POAutofillResult;
   };
 
-  const now = Date.now();
   try {
-    return await run(now);
+    return await run(Date.now(), false);
   } catch (err) {
     // A stale/expired uploaded file surfaces as a 4xx referencing the file.
-    // Drop the cache and try one clean re-upload before giving up.
+    // Drop the cache and force one clean re-upload before giving up.
     cachedFiles = null;
     if (err instanceof SyntaxError) throw err; // bad JSON — re-running won't help
-    return await run(Date.now());
+    return await run(Date.now(), true);
   }
 }

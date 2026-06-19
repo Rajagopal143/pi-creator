@@ -98,6 +98,7 @@ export function usePICreator({
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState(addDaysISO(todayISO(), DUE_DATE_OFFSET_DAYS));
   const [seqNumber, setSeqNumber] = useState('');
+  const [otherReferenceNumber, setOtherReferenceNumber] = useState('');
   const [counters, setCounters] = useState<InvoiceCounterDTO[]>([]);
   // The invoice number assigned by the server on save, or loaded when editing.
   const [assignedNumber, setAssignedNumber] = useState<string | null>(null);
@@ -272,6 +273,7 @@ export function usePICreator({
           (invoice.dueDate as string) || addDaysISO(loadedInvoiceDate, DUE_DATE_OFFSET_DAYS),
         );
         setSeqNumber((invoice.seqNumber as string) || '');
+        setOtherReferenceNumber((invoice.otherReferenceNumber as string) || '');
         setAssignedNumber((invoice.invoiceNumber as string) || null);
         setDiscount(Number(invoice.discount || 0));
         setTransportCharge(Number(invoice.transportCharge || 0));
@@ -605,6 +607,7 @@ export function usePICreator({
         invoiceDate,
         dueDate,
         seqNumber,
+        otherReferenceNumber,
         manufacturingUnit: selectedMU,
         dealer: effectiveBillTo,
         shipToDealer: effectiveShipTo,
@@ -667,7 +670,7 @@ export function usePICreator({
       setSaving(false);
     }
   }, [
-    effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber,
+    effectiveBillTo, effectiveShipTo, selectedMU, invoiceNumber, invoiceDate, dueDate, seqNumber, otherReferenceNumber,
     computedItems, priceTier, priceList, effectiveTaxType, subTotal, discount, totalSGST, totalCGST, totalIGST,
     totalGST, totalAccessory, transportCharge, transportGST, insurance, insuranceEnabled,
     roundOff, total, fetchCounters, editInvoiceId,
@@ -680,6 +683,7 @@ export function usePICreator({
     hideInvoiceNumber: !saved,
     invoiceDate,
     dueDate,
+    otherReferenceNumber,
     manufacturingUnit: selectedMU,
     dealer: effectiveBillTo,
     shipToDealer: effectiveShipTo,
@@ -710,6 +714,7 @@ export function usePICreator({
     // invoice meta
     invoiceNumber, assignedNumber, selectedMU, setSelectedMU,
     invoiceDate, setInvoiceDate, dueDate, setDueDate,
+    otherReferenceNumber, setOtherReferenceNumber,
     taxType: effectiveTaxType, setTaxType, taxTypeLocked, priceTier, setPriceTier,
     priceList, setPriceList: handleSetPriceList,
     // parties
