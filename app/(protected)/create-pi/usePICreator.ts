@@ -41,15 +41,15 @@ export function usePICreator({
 
   // ── Invoice meta ───────────────────────────────────────────────────────────
   const [priceTier, setPriceTier] = useState<PriceTier>('dealer');
-  // Which price list the line items are priced from (default: the old list).
-  const [priceList, setPriceList] = useState<PriceList>('old');
+  // Which price list the line items are priced from (default: the new list).
+  const [priceList, setPriceList] = useState<PriceList>('new');
   const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
     manufacturingUnits.length === 1 ? manufacturingUnits[0] : null,
   );
   const [taxType, setTaxType] = useState<TaxType>('within_state');
   const [piType, setPiTypeState] = useState<PIType>('vehicle');
   const [lineItems, setLineItems] = useState<LineItemState[]>([
-    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'old', kind: 'vehicle' },
+    { id: 'item-1', productId: null, variantId: null, qty: 0, accessory: 'none', priceList: 'new', kind: 'vehicle' },
   ]);
 
   /**
