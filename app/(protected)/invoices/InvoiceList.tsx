@@ -8,7 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import InvoicePreview from '@/app/(protected)/create-pi/InvoicePreview';
@@ -92,6 +91,8 @@ function statusBadgeClass(status: SavedInvoice['status']): string {
       return 'bg-green-100 text-green-700';
     case 'cancelled':
       return 'bg-red-100 text-red-700';
+    case 'deleted':
+      return 'bg-zinc-200 text-zinc-600 line-through';
     default:
       return 'bg-gray-100 text-gray-700';
   }
@@ -193,9 +194,6 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
   const [statusValue, setStatusValue] = useState<string>(PI_STATUSES[0]);
   const [statusDescription, setStatusDescription] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
-
-  const [deleteInvoice, setDeleteInvoice] = useState<SavedInvoice | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const [dispatchDateInvoice, setDispatchDateInvoice] = useState<SavedInvoice | null>(null);
   const [dispatchDateValue, setDispatchDateValue] = useState('');
@@ -304,25 +302,6 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
     setStatusInvoice(invoice);
     setStatusValue(invoice.status || PI_STATUSES[0]);
     setStatusDescription(invoice.statusDescription || '');
-  };
-
-  const handleDelete = async () => {
-    if (!deleteInvoice?._id) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/invoices/${String(deleteInvoice._id)}`, {
-        method: 'DELETE',
-      });
-      const json = await res.json() as { success: boolean; message?: string };
-      if (!json.success) throw new Error(json.message || 'Failed to delete invoice');
-      toast.success('Invoice deleted.');
-      setDeleteInvoice(null);
-      await fetchInvoices();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete invoice');
-    } finally {
-      setDeleting(false);
-    }
   };
 
   const openDispatchDateModal = (inv: SavedInvoice) => {
@@ -572,13 +551,6 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
                             <DropdownMenuItem onClick={() => openStatusEditor(inv)}>
                               Update Status
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setDeleteInvoice(inv)}
-                              className="text-red-600 focus:bg-red-50 focus:text-red-700"
-                            >
-                              Delete
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -743,37 +715,6 @@ export default function InvoiceList({ manufacturingUnits }: InvoiceListProps) {
         onRecorded={fetchInvoices}
       />
 
-      {/* Delete confirmation */}
-      {deleteInvoice && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
-          <div className="bg-white w-full max-w-md rounded-xl border border-gray-200 shadow-2xl p-5">
-            <h3 className="text-base font-semibold text-gray-900">Delete Invoice</h3>
-            <p className="text-sm text-gray-600 mt-2">
-              Permanently delete{' '}
-              <span className="font-mono font-medium text-gray-900">
-                {deleteInvoice.invoiceNumber}
-              </span>
-              ? This cannot be undone.
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              The invoice number stays consumed in its state series and will not be reused.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDeleteInvoice(null)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="bg-red-700 hover:bg-red-600"
-              >
-                {deleting ? 'Deleting…' : 'Delete'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

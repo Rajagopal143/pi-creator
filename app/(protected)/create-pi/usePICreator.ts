@@ -40,7 +40,7 @@ export function usePICreator({
   const [shipToAddr, setShipToAddr] = useState<DealerAddress>(EMPTY_ADDRESS);
 
   // ── Invoice meta ───────────────────────────────────────────────────────────
-  const [priceTier, setPriceTier] = useState<PriceTier>('dealer');
+  const [priceTier, setPriceTier] = useState<PriceTier>('areadealer');
   // Which price list the line items are priced from (default: the new list).
   const [priceList, setPriceList] = useState<PriceList>('new');
   const [selectedMU, setSelectedMU] = useState<ManufacturingUnit | null>(
@@ -224,7 +224,7 @@ export function usePICreator({
 
         setSelectedMU(manufacturingUnit);
         // Restore the dealer-type price tier the PI was created with (legacy
-        // invoices without one keep the default 'dealer').
+        // invoices without one keep the default 'areadealer').
         if (typeof invoice.priceTier === 'string' && invoice.priceTier) {
           setPriceTier(invoice.priceTier as PriceTier);
         }
