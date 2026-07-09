@@ -2,9 +2,15 @@
 
 import type { Dealer } from '@/lib/csvData';
 import type { DealerAddress, PriceList } from '../types';
-import { PRICE_LISTS } from '../constants';
+import { PRICE_LISTS, PRICE_TIERS } from '../constants';
 import { DealerSearch } from './DealerSearch';
 import { EditableAddressBlock } from './EditableAddress';
+
+/** Human-readable label for a dealer's classification. */
+function dealerTypeLabel(type?: string): string | null {
+  if (!type) return null;
+  return PRICE_TIERS.find(t => t.value === type)?.label ?? type;
+}
 
 /** Props for one party (Bill To or Ship To). */
 export interface DealerPartyProps {
@@ -37,7 +43,12 @@ function DealerParty({
       />
       {dealer && (
         <div key={`${keyPrefix}-${dealer.id}`} className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
-          <div className="font-semibold text-gray-900 text-sm">{dealer.orgName}</div>
+          <div className="font-semibold text-gray-900 text-sm">
+            {dealer.orgName}
+            {dealerTypeLabel(dealer.dealerType) && (
+              <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer.dealerType)})</span>
+            )}
+          </div>
           <div className="text-[10px] text-gray-500 mb-2">
             {dealer.dealerId} · Ph: {dealer.contact} · GSTIN: {dealer.gstNo}
           </div>

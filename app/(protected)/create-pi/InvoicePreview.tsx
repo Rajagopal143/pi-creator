@@ -30,8 +30,23 @@ export interface PreviewDealer {
   contact: string;
   orgEmail: string;
   gstNo: string;
+  /** Dealer classification (e.g. Area Dealer / Distributor). Optional for legacy invoices. */
+  dealerType?: 'dealer' | 'distributor' | 'subdealer' | 'areadealer' | string;
   billingAddress: PreviewAddress;
   shippingAddress: PreviewAddress;
+}
+
+/** Human-readable label for a dealer's classification, shown in the party blocks. */
+const DEALER_TYPE_LABELS: Record<string, string> = {
+  distributor: 'Distributor',
+  subdealer: 'Divisional Distributor',
+  dealer: 'District Dealer',
+  areadealer: 'Area Dealer',
+};
+
+function dealerTypeLabel(type?: string): string | null {
+  if (!type) return null;
+  return DEALER_TYPE_LABELS[type] ?? type;
 }
 
 export type AccessoryType = 'none' | 'black' | 'steel';
@@ -257,7 +272,12 @@ export default function InvoicePreview({
       <div className="grid grid-cols-2 gap-0 border-b border-gray-200">
         <div className="px-5 py-3 border-r border-gray-200">
           <div className="text-[9px] uppercase text-gray-400 font-semibold tracking-wider mb-1">Bill To (Dealer)</div>
-          <div className="font-bold text-gray-900 text-[11px]">{dealer?.orgName || '—'}</div>
+          <div className="font-bold text-gray-900 text-[11px]">
+            {dealer?.orgName || '—'}
+            {dealerTypeLabel(dealer?.dealerType) && (
+              <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer?.dealerType)})</span>
+            )}
+          </div>
           {dealer && (
             <div className="text-[10px] text-gray-600 mt-1 leading-relaxed">
               {formatAddr(dealer.billingAddress)}<br />
@@ -268,7 +288,12 @@ export default function InvoicePreview({
         </div>
         <div className="px-5 py-3">
           <div className="text-[9px] uppercase text-gray-400 font-semibold tracking-wider mb-1">Ship To (Dealer)</div>
-          <div className="font-bold text-gray-900 text-[11px]">{shipTo?.orgName || '—'}</div>
+          <div className="font-bold text-gray-900 text-[11px]">
+            {shipTo?.orgName || '—'}
+            {dealerTypeLabel(shipTo?.dealerType) && (
+              <span className="font-normal text-gray-500"> ({dealerTypeLabel(shipTo?.dealerType)})</span>
+            )}
+          </div>
           {shipTo && (
             <div className="text-[10px] text-gray-600 mt-1 leading-relaxed">
               {formatAddr(shipTo.shippingAddress)}<br />
