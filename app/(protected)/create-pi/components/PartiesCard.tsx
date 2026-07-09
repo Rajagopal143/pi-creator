@@ -30,7 +30,8 @@ export interface DealerPartyProps {
 function DealerParty({
   label, keyPrefix, addressLabel, dealers,
   search, onSearchChange, dealer, addr, onAddrChange, onSelect,
-}: DealerPartyProps) {
+  showDealerType = false,
+}: DealerPartyProps & { showDealerType?: boolean }) {
   return (
     <div>
       <div className="text-[10px] uppercase font-semibold text-red-500 tracking-wide mb-1">{label}</div>
@@ -45,7 +46,7 @@ function DealerParty({
         <div key={`${keyPrefix}-${dealer.id}`} className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
           <div className="font-semibold text-gray-900 text-sm">
             {dealer.orgName}
-            {dealerTypeLabel(dealer.dealerType) && (
+            {showDealerType && dealerTypeLabel(dealer.dealerType) && (
               <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer.dealerType)})</span>
             )}
           </div>
@@ -97,7 +98,7 @@ export function PartiesCard({
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <DealerParty {...billTo} />
+        <DealerParty {...billTo} showDealerType />
         <DealerParty {...shipTo} />
       </div>
     </div>

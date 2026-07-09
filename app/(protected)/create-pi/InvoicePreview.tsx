@@ -290,9 +290,6 @@ export default function InvoicePreview({
           <div className="text-[9px] uppercase text-gray-400 font-semibold tracking-wider mb-1">Ship To (Dealer)</div>
           <div className="font-bold text-gray-900 text-[11px]">
             {shipTo?.orgName || '—'}
-            {dealerTypeLabel(shipTo?.dealerType) && (
-              <span className="font-normal text-gray-500"> ({dealerTypeLabel(shipTo?.dealerType)})</span>
-            )}
           </div>
           {shipTo && (
             <div className="text-[10px] text-gray-600 mt-1 leading-relaxed">
