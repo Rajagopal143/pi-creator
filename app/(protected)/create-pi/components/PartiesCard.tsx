@@ -2,14 +2,15 @@
 
 import type { Dealer } from '@/lib/csvData';
 import type { DealerAddress, PriceList } from '../types';
-import { PRICE_LISTS, PRICE_TIERS } from '../constants';
+import { PRICE_LISTS } from '../constants';
+import { USER_TYPE_LABELS, type DealerUserType } from '@/lib/dealers/referenceData';
 import { DealerSearch } from './DealerSearch';
 import { EditableAddressBlock } from './EditableAddress';
 
-/** Human-readable label for a dealer's classification. */
+/** Human-readable label for a dealer's classification — sourced from `userType` to match the dealers list page. */
 function dealerTypeLabel(type?: string): string | null {
   if (!type) return null;
-  return PRICE_TIERS.find(t => t.value === type)?.label ?? type;
+  return USER_TYPE_LABELS[type as DealerUserType] ?? type;
 }
 
 /** Props for one party (Bill To or Ship To). */
@@ -46,8 +47,8 @@ function DealerParty({
         <div key={`${keyPrefix}-${dealer.id}`} className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
           <div className="font-semibold text-gray-900 text-sm">
             {dealer.orgName}
-            {showDealerType && dealerTypeLabel(dealer.dealerType) && (
-              <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer.dealerType)})</span>
+            {showDealerType && dealerTypeLabel(dealer.userType) && (
+              <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer.userType)})</span>
             )}
           </div>
           <div className="text-[10px] text-gray-500 mb-2">

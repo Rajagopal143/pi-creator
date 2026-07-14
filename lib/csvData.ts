@@ -14,6 +14,8 @@ export interface Dealer {
   dealerId: string;
   OEMProfileID: number;
   dealerType: 'dealer' | 'distributor' | 'subdealer' | 'areadealer';
+  /** Organizational classification, shown as the dealer type (matches the dealers list page). */
+  userType?: 'distributor' | 'divisionaldistributor' | 'districtdealer' | 'areadealer';
   orgName: string;
   orgDisplayName: string;
   orgEmail: string;
@@ -137,6 +139,7 @@ export function loadDealers(): Dealer[] {
       dealerId: o.dealerId,
       OEMProfileID: Number(o.OEMProfileID) || 1,
       dealerType: (o.dealerType || 'dealer') as Dealer['dealerType'],
+      userType: (o.userType || undefined) as Dealer['userType'],
       orgName: o.orgName || '',
       orgDisplayName: o.orgDisplayName || '',
       orgEmail: o.orgEmail || '',

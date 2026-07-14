@@ -2,6 +2,13 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Dealer } from '@/lib/csvData';
+import { USER_TYPE_LABELS, type DealerUserType } from '@/lib/dealers/referenceData';
+
+/** Human-readable label for a dealer's classification — sourced from `userType` to match the dealers list page. */
+function dealerTypeLabel(type: string | undefined): string {
+  if (!type) return '';
+  return USER_TYPE_LABELS[type as DealerUserType] ?? type;
+}
 
 /** Type-ahead dealer picker — filters by name, ID, email or city. */
 export function DealerSearch({
@@ -101,7 +108,9 @@ export function DealerSearch({
               >
                 <span className="font-medium text-gray-900">{d.orgName}</span>
                 <span className="ml-2 text-xs text-gray-500">{d.dealerId}</span>
-                <span className="ml-2 text-xs text-gray-400 capitalize">{d.dealerType}</span>
+                {dealerTypeLabel(d.userType) && (
+                  <span className="ml-2 text-xs text-gray-500">{dealerTypeLabel(d.userType)}</span>
+                )}
                 {d.billingAddress?.city && (
                   <span className="ml-1 text-xs text-gray-400">· {d.billingAddress.city}</span>
                 )}

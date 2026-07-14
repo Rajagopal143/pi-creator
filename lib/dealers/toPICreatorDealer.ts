@@ -8,6 +8,7 @@ export function dealerRecordToPICreatorDealer(doc: DealerRecordDoc): Dealer {
     dealerId: doc.dealerId,
     OEMProfileID: doc.OEMProfileID ?? 1,
     dealerType: doc.pricingDealerType,
+    userType: doc.userType,
     orgName: doc.orgName,
     orgDisplayName: doc.orgDisplayName || doc.orgName,
     orgEmail: doc.orgEmail,

@@ -32,15 +32,17 @@ export interface PreviewDealer {
   gstNo: string;
   /** Dealer classification (e.g. Area Dealer / Distributor). Optional for legacy invoices. */
   dealerType?: 'dealer' | 'distributor' | 'subdealer' | 'areadealer' | string;
+  /** Organizational classification, shown as the dealer type (matches the dealers list page). */
+  userType?: 'distributor' | 'divisionaldistributor' | 'districtdealer' | 'areadealer' | string;
   billingAddress: PreviewAddress;
   shippingAddress: PreviewAddress;
 }
 
-/** Human-readable label for a dealer's classification, shown in the party blocks. */
+/** Human-readable label for a dealer's classification, shown in the party blocks — keyed by `userType`. */
 const DEALER_TYPE_LABELS: Record<string, string> = {
   distributor: 'Distributor',
-  subdealer: 'Divisional Distributor',
-  dealer: 'District Dealer',
+  divisionaldistributor: 'Divisional Distributor',
+  districtdealer: 'District Dealer',
   areadealer: 'Area Dealer',
 };
 
@@ -274,8 +276,8 @@ export default function InvoicePreview({
           <div className="text-[9px] uppercase text-gray-400 font-semibold tracking-wider mb-1">Bill To (Dealer)</div>
           <div className="font-bold text-gray-900 text-[11px]">
             {dealer?.orgName || '—'}
-            {dealerTypeLabel(dealer?.dealerType) && (
-              <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer?.dealerType)})</span>
+            {dealerTypeLabel(dealer?.userType) && (
+              <span className="font-normal text-gray-500"> ({dealerTypeLabel(dealer?.userType)})</span>
             )}
           </div>
           {dealer && (
