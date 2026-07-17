@@ -60,7 +60,7 @@ export function LineItemsCard({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="mb-4 pb-2 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 pb-2 border-b border-gray-100 flex flex-col md:flex-row md:flex-row-reverse items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
           {/* PI-level Vehicle / Accessory mode toggle. */}
