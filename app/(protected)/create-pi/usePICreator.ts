@@ -15,6 +15,12 @@ import {
 import { addDaysISO, getVariantPrice, normalizeAddress, todayISO } from './utils';
 import type { POAutofillResult } from '@/lib/ai/poTypes';
 
+/** A neighbouring PI the Prev / Next arrows link to while editing. */
+export interface InvoiceRef {
+  id: string;
+  invoiceNumber: string;
+}
+
 export interface PICreatorInput {
   dealers: Dealer[];
   products: Product[];
@@ -107,6 +113,10 @@ export function usePICreator({
   const [transportCharge, setTransportCharge] = useState(0);
   const [insuranceEnabled, setInsuranceEnabled] = useState(true);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
+  // While editing, the neighbouring PIs in the same manufacturing-unit series
+  // (one lower / one higher sequence number) — powers the Prev / Next arrows.
+  const [prevInvoice, setPrevInvoice] = useState<InvoiceRef | null>(null);
+  const [nextInvoice, setNextInvoice] = useState<InvoiceRef | null>(null);
 
   // ── Preview modal / save state ─────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
@@ -203,6 +213,10 @@ export function usePICreator({
     if (!editInvoiceId) return;
     const loadInvoiceForEdit = async () => {
       setLoadingInvoice(true);
+      // Hopping to another PI via Prev/Next reuses this mounted component, so
+      // clear any saved/modal state carried over from the previous invoice.
+      setSaved(false);
+      setShowModal(false);
       try {
         const res = await fetch(`/api/invoices/${editInvoiceId}`);
         const json = await res.json() as { success: boolean; data?: Record<string, unknown>; message?: string };
@@ -286,6 +300,41 @@ export function usePICreator({
     };
     void loadInvoiceForEdit();
   }, [editInvoiceId]);
+
+  // ── Prev / Next navigation across a manufacturing unit's PI series ──────────
+  // Once the invoice number is known (loaded when editing), look up the closest
+  // existing PIs one sequence lower and higher within the same series so the
+  // page can offer arrows to hop between HR-PI/2627/802 ↔ 803 ↔ 804.
+  useEffect(() => {
+    if (!editInvoiceId || !assignedNumber) {
+      setPrevInvoice(null);
+      setNextInvoice(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/invoices/adjacent?invoiceNumber=${encodeURIComponent(assignedNumber)}`,
+        );
+        const json = await res.json() as {
+          success: boolean;
+          data?: { prev: InvoiceRef | null; next: InvoiceRef | null };
+        };
+        if (cancelled) return;
+        if (json.success && json.data) {
+          setPrevInvoice(json.data.prev);
+          setNextInvoice(json.data.next);
+        } else {
+          setPrevInvoice(null);
+          setNextInvoice(null);
+        }
+      } catch {
+        if (!cancelled) { setPrevInvoice(null); setNextInvoice(null); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editInvoiceId, assignedNumber]);
 
   // ── Computed line items ────────────────────────────────────────────────────
   const computedItems = useMemo<ComputedLineItem[]>(() => {
@@ -737,6 +786,8 @@ export function usePICreator({
     subTotal, totalSGST, totalCGST, totalIGST, totalGST,
     discount, setDiscount, transportCharge, setTransportCharge, transportGST,
     insurance, insuranceEnabled, setInsuranceEnabled, roundOff, total,
+    // prev / next PI navigation (only while editing)
+    prevInvoice, nextInvoice,
     // preview / save
     previewProps, canConfirm, loadingInvoice,
     showModal, saving, saved,

@@ -29,18 +29,50 @@ export default function PICreator(props: PICreatorInput) {
       {/* ── Form ── */}
       <div className=" mx-auto px-3 py-6 space-y-5 print:hidden">
 
-        {/* Back — only while editing an existing invoice. */}
+        {/* Back + Prev/Next — only while editing an existing invoice. */}
         {pi.editInvoiceId && (
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+
+            {/* Hop to the previous / next PI in this manufacturing unit's series. */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => pi.prevInvoice && router.push(`/create-pi?invoiceId=${pi.prevInvoice.id}`)}
+                disabled={!pi.prevInvoice}
+                title={pi.prevInvoice ? `Previous PI · ${pi.prevInvoice.invoiceNumber}` : 'No previous PI'}
+                className="flex items-center gap-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="hidden sm:inline">{pi.prevInvoice ? pi.prevInvoice.invoiceNumber : 'Prev'}</span>
+                <span className="sm:hidden">Prev</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => pi.nextInvoice && router.push(`/create-pi?invoiceId=${pi.nextInvoice.id}`)}
+                disabled={!pi.nextInvoice}
+                title={pi.nextInvoice ? `Next PI · ${pi.nextInvoice.invoiceNumber}` : 'No next PI'}
+                className="flex items-center gap-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="hidden sm:inline">{pi.nextInvoice ? pi.nextInvoice.invoiceNumber : 'Next'}</span>
+                <span className="sm:hidden">Next</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
         )}
 
         <InvoiceDetailsCard
